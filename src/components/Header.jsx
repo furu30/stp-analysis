@@ -9,7 +9,7 @@ const DEMO_FACTORIES = {
 };
 
 export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOpenProjectList }) {
-  const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved } = useProject();
+  const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved, saveError } = useProject();
   const [showDemoMenu, setShowDemoMenu] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const menuRef = useRef(null);
@@ -43,7 +43,14 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOp
               {project.settings.projectName}
             </span>
           )}
-          {lastSaved && (
+          {saveError ? (
+            <span
+              className="text-xs bg-red-500 text-white font-bold px-2 py-1 rounded flex items-center gap-1"
+              title={saveError}
+            >
+              ⚠️ 自動保存失敗 — 「💾 保存」でファイル退避を
+            </span>
+          ) : lastSaved && (
             <span className="text-xs text-blue-200 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
               自動保存済 {lastSaved}

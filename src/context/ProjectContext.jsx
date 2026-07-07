@@ -47,14 +47,22 @@ function loadFromStorage() {
   return null;
 }
 
-/** localStorage に保存（apiKey除外） */
+/** localStorage に保存（apiKey除外）。失敗時はエラー内容を返して呼び出し側で警告表示する */
 function saveToStorage(state) {
   try {
     const data = { ...state, aiSettings: { ...state.aiSettings, apiKey: '' } };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    // 最終保存時刻を返す
-    return new Date().toLocaleTimeString('ja-JP');
-  } catch { return null; }
+    return { time: new Date().toLocaleTimeString('ja-JP'), error: null };
+  } catch (e) {
+    console.error('自動保存に失敗:', e);
+    const isQuota = e && (e.name === 'QuotaExceededError' || e.code === 22);
+    return {
+      time: null,
+      error: isQuota
+        ? 'ブラウザの保存容量が上限に達しています。「💾 保存」でファイルに退避してください。'
+        : '自動保存に失敗しました。「💾 保存」でファイルに退避してください。',
+    };
+  }
 }
 
 /** プロジェクト一覧の管理 */
@@ -115,14 +123,41 @@ export function ProjectProvider({ children }) {
   const isUndoRedo = useRef(false);
   const prevState = useRef(null);
   const [lastSaved, setLastSaved] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const saveErrorRef = useRef('');
 
   // 自動保存: state変更のたびにlocalStorageに保存（300msデバウンス）
   const saveTimer = useRef(null);
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const time = saveToStorage(project);
-      if (time) setLastSaved(time);
+      const result = saveToStorage(project);
+      if (result.time) setLastSaved(result.time);
+      setSaveError(result.error || '');
+      saveErrorRef.current = result.error || '';
+
+      // プロジェクト一覧に登録済みなら、個別データと一覧メタデータも同期更新
+      // （「一覧に保存」の押し忘れで編集が古い状態に戻る事故を防ぐ）
+      if (!result.error && project._projectId) {
+        try {
+          const saveData = { ...project, aiSettings: { ...project.aiSettings, apiKey: '' } };
+          localStorage.setItem(`stpProject_${project._projectId}`, JSON.stringify(saveData));
+          const list = loadProjectList();
+          const idx = list.findIndex(p => p.id === project._projectId);
+          if (idx >= 0) {
+            list[idx] = {
+              ...list[idx],
+              name: project.settings.projectName || '無題プロジェクト',
+              companyName: project.settings.companyName,
+              marketType: project.settings.marketType,
+              updatedAt: new Date().toISOString(),
+            };
+            saveProjectList(list);
+          }
+        } catch (e) {
+          console.error('プロジェクト一覧の同期に失敗:', e);
+        }
+      }
 
       // Undo履歴に追加（Undo/Redo操作自体でない場合のみ）
       if (!isUndoRedo.current && prevState.current) {
@@ -135,6 +170,18 @@ export function ProjectProvider({ children }) {
     }, 300);
     return () => clearTimeout(saveTimer.current);
   }, [project]);
+
+  // 保存に失敗している間は、タブを閉じる前にブラウザ標準の確認ダイアログを出す
+  useEffect(() => {
+    const handler = (e) => {
+      if (saveErrorRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
 
   // 初回のprevState設定
   useEffect(() => {
@@ -200,7 +247,12 @@ export function ProjectProvider({ children }) {
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
-          dispatch({ type: 'SET_PROJECT', payload: data });
+          // 本アプリのプロジェクトファイルかを最低限確認し、旧形式は最新構造に移行
+          if (!data || typeof data !== 'object' || !data.settings || !data.step0) {
+            alert('このファイルはSTP分析アプリのプロジェクトファイル（.stp.json）ではないようです。');
+            return;
+          }
+          dispatch({ type: 'SET_PROJECT', payload: migrateProject(data) });
         } catch {
           alert('ファイルの読み込みに失敗しました。正しいJSON形式か確認してください。');
         }
@@ -247,7 +299,7 @@ export function ProjectProvider({ children }) {
     try {
       const raw = localStorage.getItem(`stpProject_${id}`);
       if (raw) {
-        const data = JSON.parse(raw);
+        const data = migrateProject(JSON.parse(raw));
         data.aiSettings = { ...data.aiSettings, apiKey: project.aiSettings.apiKey };
         dispatch({ type: 'SET_PROJECT', payload: data });
         return true;
@@ -294,7 +346,7 @@ export function ProjectProvider({ children }) {
       project, dispatch,
       saveToFile, loadFromFile,
       undo, redo, canUndo, canRedo,
-      lastSaved,
+      lastSaved, saveError,
       saveProjectToList, loadProjectFromList, deleteProjectFromList, getProjectList, duplicateProject,
     }}>
       {children}
