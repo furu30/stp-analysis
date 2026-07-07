@@ -9,7 +9,7 @@ const SECTIONS = [
   { id: 'step1', label: 'Step 1: セグメンテーション', icon: '📊' },
   { id: 'step2', label: 'Step 2: ターゲティング', icon: '🎯' },
   { id: 'step3', label: 'Step 3: ポジショニング', icon: '📍' },
-  { id: 'export', label: 'エクスポート', icon: '📄' },
+  { id: 'export', label: 'エクスポート・実行計画', icon: '📄' },
   { id: 'tips', label: '活用のコツ', icon: '💡' },
 ];
 
@@ -522,10 +522,24 @@ export default function TutorialPage({ onClose }) {
           </SectionCard>
 
           {/* === エクスポート === */}
-          <SectionCard id="export" title="エクスポート" icon="📄">
+          <SectionCard id="export" title="エクスポート・アクションプラン" icon="📄">
             <p className="text-sm text-gray-600 mb-4">
               完成したSTP分析を、提案書や社内資料として活用できる形式でエクスポートします。
+              出力の前に「アクションプラン（実行計画）」で分析を明日からの行動に落とし込みましょう。
             </p>
+
+            <h3 className="text-sm font-bold text-gray-700 mb-3">🚀 アクションプラン（実行計画）</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              出力画面の上部にあるアクションプラン欄で、優先施策を3〜5件まとめます。
+              各施策には「施策名」「狙い・対象ターゲット」「最初の一歩」「担当」「期限目安」を記入します。
+            </p>
+            <StepBadge number={1} text="「✨ AIでドラフト生成」で分析結果からたたき台を自動作成（APIキー設定時）" />
+            <StepBadge number={2} text="自社の実情に合わせて施策を手直し・追加・並べ替え" />
+            <StepBadge number={3} text="「最初の一歩」は追加投資なしで1〜2週間以内に着手できる行動にする" />
+            <Tip>
+              アクションプランを入力しておくと、Word・Excel・HTMLすべてのレポートに「実行計画」の章として出力されます。
+              報告書が「分析結果」で終わらず「次に何をするか」まで含んだ提案になります。
+            </Tip>
 
             <Screenshot
               src="/tutorial/export.png"

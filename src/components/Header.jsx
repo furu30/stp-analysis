@@ -8,6 +8,9 @@ const DEMO_FACTORIES = {
   createDemoProjectBakery,
 };
 
+// モニター向けフィードバックフォーム（GoogleフォームのURLをここに設定。空文字ならボタン非表示）
+const FEEDBACK_FORM_URL = '';
+
 export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOpenProjectList }) {
   const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved, saveError } = useProject();
   const [showDemoMenu, setShowDemoMenu] = useState(false);
@@ -134,6 +137,17 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOp
           >
             💬 AI Q&A
           </a>
+          {FEEDBACK_FORM_URL && (
+            <a
+              href={FEEDBACK_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-sm bg-emerald-500/80 text-white hover:bg-emerald-500 border-0 inline-flex items-center"
+              title="ご意見・不具合報告フォーム（別タブで開きます）"
+            >
+              📝 ご意見
+            </a>
+          )}
           <button
             onClick={() => setShowResetConfirm(true)}
             className="btn btn-sm bg-red-500/70 text-white hover:bg-red-500 border-0"

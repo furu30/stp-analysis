@@ -6,6 +6,7 @@ import AISettingsModal from './components/AISettingsModal';
 import ProjectListModal from './components/ProjectListModal';
 import OnboardingWizard from './components/OnboardingWizard';
 import LandingPage from './components/LandingPage';
+import DisclaimerModal, { hasAgreedDisclaimer } from './components/DisclaimerModal';
 import ProjectSettings from './steps/ProjectSettings';
 import Step0Strengths from './steps/Step0Strengths';
 import Step1Segmentation from './steps/Step1Segmentation';
@@ -24,15 +25,16 @@ function AppContent() {
     // プロジェクト名が入力済なら表紙をスキップ（作業復帰時）
     return !localStorage.getItem('stp_landing_dismissed');
   });
+  const [showDisclaimer, setShowDisclaimer] = useState(() => !hasAgreedDisclaimer());
   const { project, dispatch } = useProject();
 
-  // 初回起動時にオンボーディング表示（ランディング閉じた後）
+  // 初回起動時にオンボーディング表示（ランディング→免責確認の後）
   useEffect(() => {
-    if (!showLanding) {
+    if (!showLanding && !showDisclaimer) {
       const seen = localStorage.getItem('stp_onboarding_seen');
       if (!seen) setShowOnboarding(true);
     }
-  }, [showLanding]);
+  }, [showLanding, showDisclaimer]);
 
   const goTo = (step) => setCurrentStep(step);
 
@@ -123,6 +125,7 @@ function AppContent() {
         )}
       </main>
 
+      {showDisclaimer && <DisclaimerModal onAgree={() => setShowDisclaimer(false)} />}
       {showAISettings && <AISettingsModal onClose={() => setShowAISettings(false)} />}
       {showProjectList && (
         <ProjectListModal
