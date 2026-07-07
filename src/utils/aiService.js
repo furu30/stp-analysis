@@ -158,6 +158,51 @@ ${JSON.stringify(inputData, null, 2)}
   } catch { return {}; }
 }
 
+/** STP分析全体から実行アクションプランのドラフトを生成する */
+export async function generateActionPlan(inputData, aiSettings) {
+  const { provider, apiKey, model } = aiSettings;
+  if (!apiKey) throw new Error('APIキーが設定されていません。ヘッダーの「AI設定」ボタンからAPIキーを入力してください。');
+
+  const prompt = `以下の中小企業のSTP分析結果（強み・ターゲット・ポジショニング・SWOT）に基づき、「明日から動ける」実行アクションプランを3〜5件提案してください。
+
+条件:
+- 各施策は、選定したメインターゲット・自社の強みと必ず結びつけること
+- 「最初の一歩」は、追加投資なしで1〜2週間以内に着手できる具体的な行動にすること（例:「既存顧客上位10社に◯◯のヒアリングを行う」）
+- 担当は役割名で書くこと（例: 社長、営業担当、製造リーダー）
+- 期限は「2週間以内」「1ヶ月以内」「3ヶ月以内」のいずれかの目安で書くこと
+- 優先度の高い順に並べること
+
+データ:
+${JSON.stringify(inputData, null, 2)}
+
+以下のJSON形式のみを出力。前置き・説明文は不要:
+{"items":[{"title":"施策名（30字以内）","target":"狙い・対象ターゲット","firstStep":"最初の一歩（具体的な行動）","owner":"担当（役割名）","due":"期限目安"}]}`;
+
+  let result;
+  switch (provider) {
+    case 'claude': result = await callClaude(apiKey, model, SYSTEM_PROMPT, prompt); break;
+    case 'openai': result = await callOpenAI(apiKey, model, SYSTEM_PROMPT, prompt); break;
+    case 'gemini': result = await callGemini(apiKey, model, SYSTEM_PROMPT, prompt); break;
+    default: throw new Error(`未対応のプロバイダー: ${provider}`);
+  }
+  const match = result.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('AIの応答からアクションプランを読み取れませんでした。もう一度お試しください。');
+  try {
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed.items)) throw new Error();
+    return parsed.items.map((it, idx) => ({
+      id: `ap_${Date.now()}_${idx}`,
+      title: String(it.title || ''),
+      target: String(it.target || ''),
+      firstStep: String(it.firstStep || ''),
+      owner: String(it.owner || ''),
+      due: String(it.due || ''),
+    }));
+  } catch {
+    throw new Error('AIの応答形式が不正でした。もう一度お試しください。');
+  }
+}
+
 /** SWOTコメント生成をbuildPromptに追加 */
 export async function generateAIComment(type, inputData, aiSettings) {
   const { provider, apiKey, model, tone } = aiSettings;

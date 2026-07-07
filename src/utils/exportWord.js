@@ -89,7 +89,7 @@ function weightLabel(weight) {
 }
 
 export async function exportToWord(project) {
-  const { settings, step0, step1, step2, step3, swot, aiComments } = project;
+  const { settings, step0, step1, step2, step3, swot, aiComments, actionPlan } = project;
   const sections = [];
 
   // ===== タイトルページ =====
@@ -428,11 +428,43 @@ export async function exportToWord(project) {
   sections.push(pageBreak());
 
   // ===== 6. 総合戦略 =====
+  let secNo = 6;
   if (aiComments?.overallStrategy) {
     sections.push(
-      heading('6. 総合戦略サマリー'),
+      heading(`${secNo}. 総合戦略サマリー`),
       ...multiLine(aiComments.overallStrategy),
     );
+    secNo++;
+  }
+
+  // ===== 7. アクションプラン（実行計画） =====
+  const apItems = (actionPlan?.items || []).filter(it => it.title || it.firstStep);
+  if (apItems.length > 0) {
+    sections.push(heading(`${secNo}. アクションプラン（実行計画）`));
+    sections.push(para('分析結果を実行に落とし込むための優先施策。優先度の高い順に記載。', { color: '6B7280', spacing: { after: 200 } }));
+    const apRows = [
+      new TableRow({
+        children: [
+          cell('優先', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, width: 6 }),
+          cell('施策名', { bold: true, shading: COLORS.headerBg, width: 24 }),
+          cell('狙い・対象ターゲット', { bold: true, shading: COLORS.headerBg, width: 22 }),
+          cell('最初の一歩', { bold: true, shading: COLORS.headerBg, width: 28 }),
+          cell('担当', { bold: true, shading: COLORS.headerBg, width: 10 }),
+          cell('期限目安', { bold: true, shading: COLORS.headerBg, width: 10 }),
+        ],
+      }),
+      ...apItems.map((it, idx) => new TableRow({
+        children: [
+          cell(`${idx + 1}`, { bold: true, align: AlignmentType.CENTER }),
+          cell(it.title || '', { bold: true }),
+          cell(it.target || ''),
+          cell(it.firstStep || ''),
+          cell(it.owner || ''),
+          cell(it.due || ''),
+        ],
+      })),
+    ];
+    sections.push(new Table({ rows: apRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
   }
 
   const doc = new Document({
