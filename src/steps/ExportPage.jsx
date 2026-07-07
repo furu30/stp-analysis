@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { exportToWord } from '../utils/exportWord';
 import { exportToHtmlReport } from '../utils/exportHtml';
+import { exportToExcel } from '../utils/exportExcel';
 import AICommentBox from '../components/AICommentBox';
 import ActionPlanSection from '../components/ActionPlanSection';
 
@@ -14,10 +15,12 @@ export default function ExportPage({ onBack }) {
     try {
       if (type === 'word') await exportToWord(project);
       else if (type === 'html') exportToHtmlReport(project);
+      else if (type === 'excel') exportToExcel(project);
     } catch (e) {
       const messages = {
         word: 'Word出力に失敗しました',
         html: 'HTMLレポート出力に失敗しました',
+        excel: 'Excel出力に失敗しました',
       };
       alert(`${messages[type] || '出力エラー'}: ${e.message}\n\n対処法:\n・ブラウザを再読み込みして再試行\n・データが正しく入力されているか確認`);
     } finally {
@@ -70,7 +73,7 @@ export default function ExportPage({ onBack }) {
           アクションプランを入力しておくと、レポートの最終章「実行計画」として出力されます。
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Word */}
           <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-400 transition-colors">
             <div className="text-3xl mb-3">📝</div>
@@ -84,6 +87,22 @@ export default function ExportPage({ onBack }) {
               className="btn-primary w-full justify-center"
             >
               {exporting === 'word' ? '⏳ 出力中...' : '📝 Word'}
+            </button>
+          </div>
+
+          {/* Excel */}
+          <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-green-400 transition-colors">
+            <div className="text-3xl mb-3">📊</div>
+            <h3 className="font-bold text-gray-800 mb-1">Excel</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              5シート構成（強み棚卸・セグメント・ターゲティング・ポジショニング・アクションプラン）。データの再加工用。
+            </p>
+            <button
+              onClick={() => handleExport('excel')}
+              disabled={exporting === 'excel'}
+              className="btn-primary w-full justify-center"
+            >
+              {exporting === 'excel' ? '⏳ 出力中...' : '📊 Excel'}
             </button>
           </div>
 
@@ -108,6 +127,7 @@ export default function ExportPage({ onBack }) {
           <h4 className="text-sm font-bold text-gray-600 mb-2">出力形式の使い分け</h4>
           <ul className="text-xs text-gray-500 space-y-1">
             <li>・<strong>Word</strong>：提案書として製本・送付したいとき。社内稟議書への添付にも。</li>
+            <li>・<strong>Excel</strong>：スコアやセグメントのデータを自社で再加工・更新したいとき。</li>
             <li>・<strong>HTML</strong>：ブラウザで表示。SVGグラフ付きでビジュアル確認や印刷／PDF化（ブラウザの「印刷→PDFとして保存」）に対応。</li>
           </ul>
         </div>

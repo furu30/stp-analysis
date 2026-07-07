@@ -32,7 +32,10 @@ async function callClaude(apiKey, model, systemPrompt, userPrompt, maxTokens, si
   if (resp.status === 404) throw new Error(`MODEL_NOT_FOUND:モデル「${model}」が見つかりません。AI設定で別のモデルを選択してください。`);
   if (!resp.ok) throw new Error(`API_ERROR:${resp.status}`);
   const data = await resp.json();
-  return data.content[0].text;
+  // thinkingブロックが先頭に来る場合があるため、textブロックを探して返す
+  const textBlock = (data.content || []).find(b => b.type === 'text' && b.text);
+  if (!textBlock) throw new Error('API_ERROR:予期しない応答形式');
+  return textBlock.text;
 }
 
 async function callOpenAI(apiKey, model, systemPrompt, userPrompt, maxTokens, signal) {

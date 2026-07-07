@@ -48,7 +48,8 @@ async function callClaude(apiKey, model, systemPrompt, userPrompt) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        // Sonnet 5以降はadaptive thinkingが既定で有効になり出力を消費するため余裕を持たせる
+        max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -58,8 +59,24 @@ async function callClaude(apiKey, model, systemPrompt, userPrompt) {
   }
   if (!resp.ok) throw new Error(parseApiError(resp.status, 'Claude'));
   const data = await resp.json();
-  if (!data.content?.[0]?.text) throw new Error('Claude APIから予期しない応答形式を受信しました。');
-  return data.content[0].text;
+  // thinkingブロックが先頭に来る場合があるため、textブロックを探して返す
+  const textBlock = (data.content || []).find(b => b.type === 'text' && b.text);
+  if (!textBlock) throw new Error('Claude APIから予期しない応答形式を受信しました。');
+  return textBlock.text;
+}
+
+/** 一時的なエラー（レート制限・サーバーエラー・ネットワーク断）は1回だけ自動リトライする */
+async function withRetry(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    const msg = e?.message || '';
+    const retryable = msg.includes('レート制限') || msg.includes('サーバーでエラー')
+      || msg.includes('一時的に利用できません') || msg.includes('ネットワークエラー');
+    if (!retryable) throw e;
+    await new Promise(r => setTimeout(r, 2000));
+    return fn();
+  }
 }
 
 async function callOpenAI(apiKey, model, systemPrompt, userPrompt) {
@@ -180,9 +197,9 @@ ${JSON.stringify(inputData, null, 2)}
 
   let result;
   switch (provider) {
-    case 'claude': result = await callClaude(apiKey, model, SYSTEM_PROMPT, prompt); break;
-    case 'openai': result = await callOpenAI(apiKey, model, SYSTEM_PROMPT, prompt); break;
-    case 'gemini': result = await callGemini(apiKey, model, SYSTEM_PROMPT, prompt); break;
+    case 'claude': result = await withRetry(() => callClaude(apiKey, model, SYSTEM_PROMPT, prompt)); break;
+    case 'openai': result = await withRetry(() => callOpenAI(apiKey, model, SYSTEM_PROMPT, prompt)); break;
+    case 'gemini': result = await withRetry(() => callGemini(apiKey, model, SYSTEM_PROMPT, prompt)); break;
     default: throw new Error(`未対応のプロバイダー: ${provider}`);
   }
   const match = result.match(/\{[\s\S]*\}/);
@@ -212,11 +229,11 @@ export async function generateAIComment(type, inputData, aiSettings) {
 
   switch (provider) {
     case 'claude':
-      return callClaude(apiKey, model, SYSTEM_PROMPT, userPrompt);
+      return withRetry(() => callClaude(apiKey, model, SYSTEM_PROMPT, userPrompt));
     case 'openai':
-      return callOpenAI(apiKey, model, SYSTEM_PROMPT, userPrompt);
+      return withRetry(() => callOpenAI(apiKey, model, SYSTEM_PROMPT, userPrompt));
     case 'gemini':
-      return callGemini(apiKey, model, SYSTEM_PROMPT, userPrompt);
+      return withRetry(() => callGemini(apiKey, model, SYSTEM_PROMPT, userPrompt));
     default:
       throw new Error(`未対応のプロバイダー: ${provider}`);
   }
