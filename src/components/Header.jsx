@@ -8,8 +8,8 @@ const DEMO_FACTORIES = {
   createDemoProjectBakery,
 };
 
-export default function Header({ onOpenAISettings, onOpenTutorial, onReset }) {
-  const { project, dispatch, saveToFile, loadFromFile } = useProject();
+export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOpenProjectList }) {
+  const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved } = useProject();
   const [showDemoMenu, setShowDemoMenu] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const menuRef = useRef(null);
@@ -43,14 +43,54 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset }) {
               {project.settings.projectName}
             </span>
           )}
+          {lastSaved && (
+            <span className="text-xs text-blue-200 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+              自動保存済 {lastSaved}
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 header-actions">
+          {/* Undo/Redo */}
+          <div className="flex items-center gap-0.5 mr-1">
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              className="btn btn-sm bg-white/15 text-white hover:bg-white/25 border-0 px-2 disabled:opacity-30"
+              title="元に戻す (Ctrl+Z)"
+            >
+              ↩
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              className="btn btn-sm bg-white/15 text-white hover:bg-white/25 border-0 px-2 disabled:opacity-30"
+              title="やり直し (Ctrl+Shift+Z)"
+            >
+              ↪
+            </button>
+          </div>
+
+          {/* ダークモード */}
+          <button
+            onClick={() => dispatch({ type: 'UPDATE_CUSTOMIZATION', payload: { theme: project.customization?.theme === 'dark' ? 'light' : 'dark' } })}
+            className="btn btn-sm bg-white/15 text-white hover:bg-white/25 border-0 px-2"
+            title="ダークモード切替"
+          >
+            {project.customization?.theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+
+          {/* プロジェクト一覧 */}
+          <button onClick={onOpenProjectList} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
+            📁 一覧
+          </button>
+
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowDemoMenu(!showDemoMenu)}
               className="btn btn-sm bg-amber-500/80 text-white hover:bg-amber-500 border-0"
             >
-              📋 デモデータ ▾
+              📋 デモ ▾
             </button>
             {showDemoMenu && (
               <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[280px] z-50">
@@ -78,6 +118,15 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset }) {
           <button onClick={onOpenTutorial} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
             📚 使い方
           </button>
+          <a
+            href="https://notebooklm.google.com/notebook/ebb20d9f-0812-494d-807d-bc23486ff6ef"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm bg-purple-500/80 text-white hover:bg-purple-500 border-0 inline-flex items-center"
+            title="マニュアル内容についてAIに質問できます（NotebookLM・Googleアカウントログイン要）"
+          >
+            💬 AI Q&A
+          </a>
           <button
             onClick={() => setShowResetConfirm(true)}
             className="btn btn-sm bg-red-500/70 text-white hover:bg-red-500 border-0"
@@ -86,11 +135,7 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset }) {
           </button>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 pb-2">
-        <p className="text-xs text-blue-200">
-          ※ ブラウザリロードではデータが消えます。作業中は定期的に「保存」ボタンを押してください。
-        </p>
-      </div>
+
       {/* リセット確認モーダル */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowResetConfirm(false)}>

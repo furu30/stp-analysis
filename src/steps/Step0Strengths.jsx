@@ -50,7 +50,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
   const flaggedItems = categories.flatMap(cat =>
     cat.items.filter(i => i.isStrengthFlag).map(i => ({
       ...i,
-      categoryName: VALUE_CHAIN_CATEGORIES.find(c => c.id === cat.id)?.name,
+      categoryName: cat.categoryName || VALUE_CHAIN_CATEGORIES.find(c => c.id === cat.id)?.name,
       categoryId: cat.id,
     }))
   );
@@ -83,7 +83,14 @@ export default function Step0Strengths({ onNext, onSkip }) {
   };
 
   const activeCat = categories.find(c => c.id === activeTab);
-  const catMeta = VALUE_CHAIN_CATEGORIES.find(c => c.id === activeTab);
+  // カテゴリメタデータ: プロジェクトデータに含まれていればそちらを優先、なければマスタ参照
+  const masterCat = VALUE_CHAIN_CATEGORIES.find(c => c.id === activeTab);
+  const catMeta = {
+    ...masterCat,
+    name: activeCat?.categoryName || masterCat?.name,
+    description: activeCat?.categoryDescription || masterCat?.description,
+    type: activeCat?.categoryType || masterCat?.type,
+  };
 
   if (showTop5) {
     return (
@@ -174,17 +181,22 @@ export default function Step0Strengths({ onNext, onSkip }) {
 
         {/* Category tabs */}
         <div className="flex gap-1 mb-4 overflow-x-auto border-b border-gray-200 pb-2">
-          {VALUE_CHAIN_CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveTab(cat.id)}
-              className={`px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors
-                ${activeTab === cat.id ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-100'}
-                ${cat.type === '支援活動' ? 'border-l-2 border-l-amber-400' : ''}`}
-            >
-              {cat.type === '支援活動' && '🔧 '}{cat.name}
-            </button>
-          ))}
+          {categories.map(cat => {
+            const master = VALUE_CHAIN_CATEGORIES.find(c => c.id === cat.id);
+            const name = cat.categoryName || master?.name || cat.id;
+            const type = cat.categoryType || master?.type || '';
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveTab(cat.id)}
+                className={`px-3 py-1.5 rounded-t-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors
+                  ${activeTab === cat.id ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-100'}
+                  ${type === '支援活動' ? 'border-l-2 border-l-amber-400' : ''}`}
+              >
+                {type === '支援活動' && '🔧 '}{name}
+              </button>
+            );
+          })}
         </div>
 
         {/* Active category content */}

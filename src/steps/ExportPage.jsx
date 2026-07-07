@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useProject } from '../context/ProjectContext';
-import { exportToExcel } from '../utils/exportExcel';
 import { exportToWord } from '../utils/exportWord';
 import { exportToHtmlReport } from '../utils/exportHtml';
 import AICommentBox from '../components/AICommentBox';
@@ -12,11 +11,14 @@ export default function ExportPage({ onBack }) {
   const handleExport = async (type) => {
     setExporting(type);
     try {
-      if (type === 'excel') exportToExcel(project);
-      else if (type === 'word') await exportToWord(project);
+      if (type === 'word') await exportToWord(project);
       else if (type === 'html') exportToHtmlReport(project);
     } catch (e) {
-      alert(`出力エラー: ${e.message}`);
+      const messages = {
+        word: 'Word出力に失敗しました',
+        html: 'HTMLレポート出力に失敗しました',
+      };
+      alert(`${messages[type] || '出力エラー'}: ${e.message}\n\n対処法:\n・ブラウザを再読み込みして再試行\n・データが正しく入力されているか確認`);
     } finally {
       setExporting('');
     }
@@ -30,52 +32,36 @@ export default function ExportPage({ onBack }) {
           STP分析の結果を各種形式で出力します。用途に応じて出力形式を選択してください。
         </p>
 
-        <div className="grid grid-cols-3 gap-4">
-          {/* Excel */}
-          <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-green-400 transition-colors">
-            <div className="text-3xl mb-3">📊</div>
-            <h3 className="font-bold text-gray-800 mb-1">Excelシート出力</h3>
-            <p className="text-xs text-gray-500 mb-3">
-              4シート構成（強み棚卸・セグメント・ターゲティング・ポジショニング）。数値データの確認・修正に最適。
-            </p>
-            <button
-              onClick={() => handleExport('excel')}
-              disabled={exporting === 'excel'}
-              className="btn-primary w-full justify-center"
-            >
-              {exporting === 'excel' ? '⏳ 出力中...' : '📊 Excelで出力'}
-            </button>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Word */}
           <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-400 transition-colors">
             <div className="text-3xl mb-3">📝</div>
-            <h3 className="font-bold text-gray-800 mb-1">Word文書出力</h3>
+            <h3 className="font-bold text-gray-800 mb-1">Word</h3>
             <p className="text-xs text-gray-500 mb-3">
-              提案書・報告書として使用可能。表紙・目次・全セクションを構造化。AIコメントも含む。
+              提案書・報告書として使用可能。SWOT分析・クロス戦略・AIコメントまで全セクションを含む完全版。
             </p>
             <button
               onClick={() => handleExport('word')}
               disabled={exporting === 'word'}
               className="btn-primary w-full justify-center"
             >
-              {exporting === 'word' ? '⏳ 出力中...' : '📝 Wordで出力'}
+              {exporting === 'word' ? '⏳ 出力中...' : '📝 Word'}
             </button>
           </div>
 
           {/* HTML */}
           <div className="border-2 border-gray-200 rounded-xl p-5 hover:border-purple-400 transition-colors">
             <div className="text-3xl mb-3">🌐</div>
-            <h3 className="font-bold text-gray-800 mb-1">HTMLレポート出力</h3>
+            <h3 className="font-bold text-gray-800 mb-1">HTML</h3>
             <p className="text-xs text-gray-500 mb-3">
-              新しいタブでレポートを表示。ブラウザの「印刷→PDF保存」でPDF化可能。グラフはSVGで高品質。
+              ブラウザで表示→印刷でPDF化。SVGグラフ付き。社内共有・画面確認用。
             </p>
             <button
               onClick={() => handleExport('html')}
               disabled={exporting === 'html'}
               className="btn-primary w-full justify-center"
             >
-              {exporting === 'html' ? '⏳ 出力中...' : '🌐 レポートを出力'}
+              {exporting === 'html' ? '⏳ 出力中...' : '🌐 HTML'}
             </button>
           </div>
         </div>
@@ -83,9 +69,8 @@ export default function ExportPage({ onBack }) {
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h4 className="text-sm font-bold text-gray-600 mb-2">出力形式の使い分け</h4>
           <ul className="text-xs text-gray-500 space-y-1">
-            <li>・<strong>Excel</strong>：数値データをクライアントと一緒に確認・修正したいとき</li>
-            <li>・<strong>Word</strong>：提案書として製本・送付したいとき。社内稟議書・議事録への添付にも対応</li>
-            <li>・<strong>HTML/PDF</strong>：グラフを高品質で印刷したいとき。プロジェクター投影やメール添付に最適</li>
+            <li>・<strong>Word</strong>：提案書として製本・送付したいとき。社内稟議書への添付にも。</li>
+            <li>・<strong>HTML</strong>：ブラウザで表示。SVGグラフ付きでビジュアル確認や印刷／PDF化（ブラウザの「印刷→PDFとして保存」）に対応。</li>
           </ul>
         </div>
       </div>

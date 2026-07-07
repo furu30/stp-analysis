@@ -1,161 +1,463 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle } from 'docx';
+import {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType,
+  Footer, PageNumber, PageBreak,
+} from 'docx';
 import { saveAs } from 'file-saver';
-import { VALUE_CHAIN_CATEGORIES } from '../data/defaultData';
 
-function createBorderedCell(text, opts = {}) {
+const COLORS = {
+  strengthBg: 'DBEAFE',
+  weaknessBg: 'FECACA',
+  opportunityBg: 'D1FAE5',
+  threatBg: 'FED7AA',
+  headerBg: 'F3F4F6',
+  mainBg: 'FEE2E2',
+  subBg: 'FEF3C7',
+  noneBg: 'F3F4F6',
+};
+
+function cell(text, opts = {}) {
+  const lines = Array.isArray(text) ? text : [text];
   return new TableCell({
-    children: [new Paragraph({ children: [new TextRun({ text: text || '', size: 20, ...(opts.bold ? { bold: true } : {}) })], alignment: opts.align || AlignmentType.LEFT })],
+    children: lines.map(line => new Paragraph({
+      children: [new TextRun({
+        text: line || '',
+        size: opts.size || 20,
+        ...(opts.bold ? { bold: true } : {}),
+        ...(opts.color ? { color: opts.color } : {}),
+      })],
+      alignment: opts.align || AlignmentType.LEFT,
+    })),
     width: opts.width ? { size: opts.width, type: WidthType.PERCENTAGE } : undefined,
+    shading: opts.shading ? { fill: opts.shading, type: ShadingType.CLEAR, color: 'auto' } : undefined,
     borders: {
-      top: { style: BorderStyle.SINGLE, size: 1 },
-      bottom: { style: BorderStyle.SINGLE, size: 1 },
-      left: { style: BorderStyle.SINGLE, size: 1 },
-      right: { style: BorderStyle.SINGLE, size: 1 },
+      top: { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF' },
+      bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF' },
+      left: { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF' },
+      right: { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF' },
     },
   });
 }
 
-export async function exportToWord(project) {
-  const { settings, step0, step1, step2, step3, aiComments } = project;
+function para(text, opts = {}) {
+  return new Paragraph({
+    children: [new TextRun({
+      text: text || '',
+      size: opts.size || 22,
+      ...(opts.bold ? { bold: true } : {}),
+      ...(opts.color ? { color: opts.color } : {}),
+    })],
+    spacing: opts.spacing || { after: 100 },
+    alignment: opts.align || AlignmentType.LEFT,
+  });
+}
 
+function multiLine(text) {
+  if (!text) return [new Paragraph({ text: '' })];
+  return text.split('\n').map(line => new Paragraph({
+    children: [new TextRun({ text: line, size: 22 })],
+    spacing: { after: 80 },
+  }));
+}
+
+function heading(text, level = HeadingLevel.HEADING_1) {
+  return new Paragraph({
+    text: text,
+    heading: level,
+    spacing: { before: 400, after: 200 },
+  });
+}
+
+function pageBreak() {
+  return new Paragraph({ children: [new PageBreak()] });
+}
+
+function targetLabel(label) {
+  return label === 'main' ? 'メイン' : label === 'sub' ? 'サブ' : '対象外';
+}
+
+function targetColor(label) {
+  return label === 'main' ? COLORS.mainBg : label === 'sub' ? COLORS.subBg : COLORS.noneBg;
+}
+
+function weightMultiplier(weight) {
+  return weight === 'high' ? 3 : weight === 'medium' ? 2 : 1;
+}
+
+function weightLabel(weight) {
+  return weight === 'high' ? '高(×3)' : weight === 'medium' ? '中(×2)' : '低(×1)';
+}
+
+export async function exportToWord(project) {
+  const { settings, step0, step1, step2, step3, swot, aiComments } = project;
   const sections = [];
 
-  // Title page
+  // ===== タイトルページ =====
   sections.push(
-    new Paragraph({ text: 'STP分析レポート', heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
-    new Paragraph({ children: [new TextRun({ text: settings.projectName || '', size: 32, bold: true })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
-    new Paragraph({ children: [new TextRun({ text: `自社名: ${settings.companyName || ''}`, size: 24 })], alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: `市場タイプ: ${settings.marketType === 'btob' ? 'BtoB' : 'BtoC'}`, size: 24 })], alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: `作成日: ${new Date().toLocaleDateString('ja-JP')}`, size: 24 })], alignment: AlignmentType.CENTER, spacing: { after: 600 } }),
-    new Paragraph({ text: '' }),
+    new Paragraph({
+      children: [new TextRun({ text: 'STP分析レポート', size: 56, bold: true, color: '1E40AF' })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 1200, after: 400 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: settings.projectName || '', size: 36, bold: true })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 600 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: settings.companyName || '', size: 32 })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `市場タイプ: ${settings.marketType === 'btob' ? 'BtoB' : 'BtoC'}`, size: 24, color: '6B7280' })],
+      alignment: AlignmentType.CENTER,
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `作成日: ${new Date().toLocaleDateString('ja-JP')}`, size: 24, color: '6B7280' })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 },
+    }),
+    pageBreak(),
   );
 
-  // Section 1: 強み
-  sections.push(
-    new Paragraph({ text: '1. 自社の強み', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-  );
+  // ===== 経営概要 =====
+  if (settings.productService || settings.businessDescription) {
+    sections.push(heading('経営概要'));
+    if (settings.productService) {
+      sections.push(
+        para('主要事業・商材', { bold: true, size: 24 }),
+        ...multiLine(settings.productService),
+      );
+    }
+    if (settings.businessDescription) {
+      sections.push(
+        para('事業内容', { bold: true, size: 24, spacing: { before: 200, after: 100 } }),
+        ...multiLine(settings.businessDescription),
+      );
+    }
+    sections.push(pageBreak());
+  }
+
+  // ===== 1. 自社の強み =====
+  sections.push(heading('1. 自社の強み（バリューチェーン分析）'));
 
   if ((step0.top5 || []).length > 0) {
-    sections.push(new Paragraph({ text: 'Top5 強み', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }));
-    const top5Rows = [
-      new TableRow({ children: [createBorderedCell('順位', { bold: true }), createBorderedCell('区分', { bold: true }), createBorderedCell('強み', { bold: true }), createBorderedCell('重要理由', { bold: true })] }),
-    ];
+    sections.push(heading('1.1 Top5 強み', HeadingLevel.HEADING_2));
+
     step0.top5.forEach((item, idx) => {
-      top5Rows.push(new TableRow({ children: [
-        createBorderedCell(`${idx + 1}`), createBorderedCell(item.categoryName || ''), createBorderedCell(item.name), createBorderedCell(item.reason || ''),
-      ] }));
+      sections.push(new Paragraph({
+        children: [
+          new TextRun({ text: `${idx + 1}. ${item.name || ''}`, size: 28, bold: true, color: '1E40AF' }),
+          new TextRun({ text: `  〔${item.categoryName || ''}〕`, size: 20, color: '6B7280' }),
+        ],
+        spacing: { before: 300, after: 100 },
+      }));
+      if (item.strength) {
+        sections.push(
+          para('■ 強みの内容', { bold: true, color: '374151', size: 22 }),
+          ...multiLine(item.strength),
+        );
+      }
+      if (item.reason) {
+        sections.push(
+          para('■ 重要理由（模倣困難性・希少性・顧客価値）', { bold: true, color: '374151', size: 22, spacing: { before: 100, after: 60 } }),
+          ...multiLine(item.reason),
+        );
+      }
+      if (item.communication) {
+        sections.push(
+          para('■ 顧客への伝達状況', { bold: true, color: '374151', size: 22, spacing: { before: 100, after: 60 } }),
+          ...multiLine(item.communication),
+        );
+      }
     });
-    sections.push(new Table({ rows: top5Rows, width: { size: 100, type: WidthType.PERCENTAGE } }));
   }
 
-  if (aiComments.strengthSummary) {
+  if (aiComments?.strengthSummary) {
     sections.push(
-      new Paragraph({ text: 'AIコメント', heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 100 } }),
-      new Paragraph({ text: aiComments.strengthSummary, spacing: { after: 200 } }),
+      heading('1.2 強み総評（AIコメント）', HeadingLevel.HEADING_2),
+      ...multiLine(aiComments.strengthSummary),
     );
   }
+  sections.push(pageBreak());
 
-  // Section 2: セグメンテーション
-  sections.push(
-    new Paragraph({ text: '2. セグメンテーション', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-  );
-  if (step1.selectedAxes.length > 0) {
-    const segRows = [
-      new TableRow({ children: [createBorderedCell('切り口', { bold: true }), createBorderedCell('優先度', { bold: true }), createBorderedCell('セグメント', { bold: true }), createBorderedCell('特性メモ', { bold: true })] }),
-    ];
+  // ===== 2. セグメンテーション =====
+  sections.push(heading('2. セグメンテーション'));
+
+  if ((step1.selectedAxes || []).length > 0) {
+    sections.push(para('市場を分類する切り口（軸）と、各軸の中の具体的なセグメント。', { color: '6B7280', spacing: { after: 200 } }));
     step1.selectedAxes.forEach(axis => {
-      const segs = step1.segments[axis.id] || [];
-      segs.forEach(seg => {
-        segRows.push(new TableRow({ children: [
-          createBorderedCell(axis.name), createBorderedCell(axis.priority), createBorderedCell(seg.name), createBorderedCell(seg.memo || ''),
-        ] }));
-      });
+      const segs = (step1.segments?.[axis.id] || []).filter(s => s.name);
+      if (segs.length === 0) return;
+      sections.push(new Paragraph({
+        children: [
+          new TextRun({ text: axis.name, size: 26, bold: true }),
+          new TextRun({ text: `  優先度: ${axis.priority || '-'}`, size: 18, color: '6B7280' }),
+        ],
+        spacing: { before: 200, after: 80 },
+      }));
+      const segRows = [
+        new TableRow({ children: [cell('セグメント名', { bold: true, shading: COLORS.headerBg, width: 30 }), cell('特性メモ', { bold: true, shading: COLORS.headerBg, width: 70 })] }),
+        ...segs.map(seg => new TableRow({ children: [cell(seg.name), cell(seg.memo || '')] })),
+      ];
+      sections.push(new Table({ rows: segRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
     });
-    sections.push(new Table({ rows: segRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+  }
+  sections.push(pageBreak());
+
+  // ===== 3. ターゲティング =====
+  sections.push(heading('3. ターゲティング'));
+
+  const candidates = step2.candidates || [];
+  const tAxes = step2.axes || [];
+
+  // 3.1 候補一覧と構成
+  if (candidates.length > 0) {
+    sections.push(heading('3.1 ターゲット候補と構成', HeadingLevel.HEADING_2));
+    const compRows = [
+      new TableRow({ children: [cell('候補名', { bold: true, shading: COLORS.headerBg, width: 35 }), cell('構成セグメント', { bold: true, shading: COLORS.headerBg, width: 65 })] }),
+    ];
+    candidates.forEach(c => {
+      const segs = (c.segments || []).map(s => `${s.axisName}: ${s.segName}`);
+      compRows.push(new TableRow({ children: [cell(c.name || '(名称未設定)'), cell(segs.length > 0 ? segs : '(未設定)')] }));
+    });
+    sections.push(new Table({ rows: compRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
   }
 
-  // Section 3: ターゲティング
-  sections.push(
-    new Paragraph({ text: '3. ターゲティング', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-  );
+  // 3.2 6R評価
+  if (candidates.length > 0 && tAxes.length > 0) {
+    sections.push(heading('3.2 6R評価スコア', HeadingLevel.HEADING_2));
+    const scoreHeader = [
+      cell('候補', { bold: true, shading: COLORS.headerBg }),
+      ...tAxes.map(a => cell([a.name, weightLabel(a.weight)], { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, size: 16 })),
+      cell('加重合計', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER }),
+      cell('区分', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER }),
+    ];
+    const scoreRows = [new TableRow({ children: scoreHeader })];
 
-  const allSegs = [];
-  for (const [axisId, segList] of Object.entries(step1.segments || {})) {
-    for (const seg of segList) {
-      if (seg.name) allSegs.push(seg);
-    }
-  }
-
-  if (allSegs.length > 0 && step2.axes.length > 0) {
-    const header = [createBorderedCell('セグメント', { bold: true }), ...step2.axes.map(a => createBorderedCell(a.name, { bold: true })), createBorderedCell('合計', { bold: true }), createBorderedCell('区分', { bold: true })];
-    const tRows = [new TableRow({ children: header })];
-    allSegs.forEach(seg => {
+    // 加重合計でソートして表示
+    const sorted = [...candidates].map(c => {
       let total = 0;
-      const cells = [createBorderedCell(seg.name)];
-      step2.axes.forEach(axis => {
-        const raw = step2.scores[`${seg.id}_${axis.id}`] || 0;
-        const mult = axis.weight === 'high' ? 3 : axis.weight === 'medium' ? 2 : 1;
-        total += raw * mult;
-        cells.push(createBorderedCell(`${raw}`));
+      const raws = tAxes.map(axis => {
+        const raw = step2.scores?.[`${c.id}_${axis.id}`] || 0;
+        total += raw * weightMultiplier(axis.weight);
+        return raw;
       });
-      const t = step2.targets[seg.id] || {};
-      cells.push(createBorderedCell(`${total}`));
-      cells.push(createBorderedCell(t.label === 'main' ? 'メイン' : t.label === 'sub' ? 'サブ' : '対象外'));
-      tRows.push(new TableRow({ children: cells }));
+      const target = step2.targets?.[c.id] || {};
+      return { c, raws, total, target };
+    }).sort((a, b) => b.total - a.total);
+
+    sorted.forEach(({ c, raws, total, target }) => {
+      scoreRows.push(new TableRow({
+        children: [
+          cell(c.name || '(名称未設定)'),
+          ...raws.map(r => cell(`${r}`, { align: AlignmentType.CENTER })),
+          cell(`${total}`, { bold: true, align: AlignmentType.CENTER }),
+          cell(targetLabel(target.label), { bold: true, align: AlignmentType.CENTER, shading: targetColor(target.label) }),
+        ],
+      }));
     });
-    sections.push(new Table({ rows: tRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+    sections.push(new Table({ rows: scoreRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
   }
 
-  if (aiComments.targetingRationale) {
-    sections.push(
-      new Paragraph({ text: 'AIコメント', heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 100 } }),
-      new Paragraph({ text: aiComments.targetingRationale, spacing: { after: 200 } }),
-    );
+  // 3.3 メイン/サブの選定理由
+  const selectedTargets = candidates
+    .map(c => ({ c, target: step2.targets?.[c.id] || {} }))
+    .filter(({ target }) => target.label === 'main' || target.label === 'sub');
+
+  if (selectedTargets.length > 0) {
+    sections.push(heading('3.3 選定したターゲットと理由', HeadingLevel.HEADING_2));
+    selectedTargets.forEach(({ c, target }) => {
+      sections.push(new Paragraph({
+        children: [
+          new TextRun({ text: `【${targetLabel(target.label)}】 `, size: 24, bold: true, color: target.label === 'main' ? 'DC2626' : 'D97706' }),
+          new TextRun({ text: c.name || '(名称未設定)', size: 24, bold: true }),
+        ],
+        spacing: { before: 200, after: 100 },
+      }));
+      if (target.reason) {
+        sections.push(...multiLine(target.reason));
+      }
+    });
   }
 
-  // Section 4: ポジショニング
-  if (step3.skipped) {
+  if (aiComments?.targetingRationale) {
     sections.push(
-      new Paragraph({ text: '4. ポジショニング', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-      new Paragraph({ text: 'ポジショニング分析はスキップされました（下請け企業等で競合設定が難しい場合）。', spacing: { after: 200 } }),
+      heading('3.4 ターゲティング戦略コメント（AI生成）', HeadingLevel.HEADING_2),
+      ...multiLine(aiComments.targetingRationale),
     );
-  } else {
-    sections.push(
-      new Paragraph({ text: '4. ポジショニング', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-      new Paragraph({ text: '※ グラフ（ストラテジーキャンバス・ポジショニングマップ）はHTMLレポートをご参照ください。', spacing: { after: 200 } }),
-    );
+  }
+  sections.push(pageBreak());
 
-    const companies = [{ id: 'self', name: settings.companyName || '自社' }, ...step3.competitors];
-    if (step3.axes.length > 0) {
-      const posHeader = [createBorderedCell('企業', { bold: true }), ...step3.axes.map(a => createBorderedCell(a.name, { bold: true }))];
+  // ===== 4. ポジショニング =====
+  sections.push(heading('4. ポジショニング'));
+
+  if (step3?.skipped) {
+    sections.push(para('ポジショニング分析はスキップされました（下請け企業等で競合設定が難しい場合）。'));
+  } else if (step3) {
+    // 4.1 KBF
+    if ((step3.kbf || []).length > 0) {
+      sections.push(heading('4.1 購買決定要因（KBF）', HeadingLevel.HEADING_2));
+      const kbfRows = [
+        new TableRow({ children: [cell('要因', { bold: true, shading: COLORS.headerBg, width: 60 }), cell('重要度', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, width: 40 })] }),
+        ...step3.kbf.filter(k => k.name).map(k => new TableRow({
+          children: [
+            cell(k.name),
+            cell(k.importance === 'high' ? '高' : k.importance === 'medium' ? '中' : '低', { align: AlignmentType.CENTER }),
+          ],
+        })),
+      ];
+      sections.push(new Table({ rows: kbfRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+    }
+
+    // 4.2 競合スコア
+    if ((step3.axes || []).length > 0) {
+      sections.push(heading('4.2 ストラテジーキャンバス（自社×競合のスコア）', HeadingLevel.HEADING_2));
+      const companies = [{ id: 'self', name: settings.companyName || '自社' }, ...(step3.competitors || [])];
+      const posHeader = [
+        cell('企業', { bold: true, shading: COLORS.headerBg }),
+        ...step3.axes.map(a => cell(a.name, { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, size: 16 })),
+      ];
       const pRows = [new TableRow({ children: posHeader })];
       companies.forEach(comp => {
-        const cells = [createBorderedCell(comp.name || '(未入力)')];
-        step3.axes.forEach(axis => {
-          cells.push(createBorderedCell(`${step3.scores[`${comp.id}_${axis.id}`] || 0}`));
-        });
-        pRows.push(new TableRow({ children: cells }));
+        const isSelf = comp.id === 'self';
+        const rowCells = [
+          cell(comp.name || '(未入力)', { bold: isSelf, shading: isSelf ? COLORS.headerBg : undefined }),
+          ...step3.axes.map(axis => cell(`${step3.scores?.[`${comp.id}_${axis.id}`] || 0}`, { align: AlignmentType.CENTER, bold: isSelf })),
+        ];
+        pRows.push(new TableRow({ children: rowCells }));
       });
       sections.push(new Table({ rows: pRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+      sections.push(para('※ ポジショニングマップ等のグラフはHTMLレポートまたはアプリ画面をご参照ください。', { color: '6B7280', size: 18, spacing: { before: 100, after: 200 } }));
     }
 
-    if (aiComments.positioningComment) {
+    if (aiComments?.positioningComment) {
       sections.push(
-        new Paragraph({ text: 'AIコメント', heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 100 } }),
-        new Paragraph({ text: aiComments.positioningComment, spacing: { after: 200 } }),
+        heading('4.3 ポジショニング分析コメント（AI生成）', HeadingLevel.HEADING_2),
+        ...multiLine(aiComments.positioningComment),
       );
     }
   }
+  sections.push(pageBreak());
 
-  if (aiComments.overallStrategy) {
+  // ===== 5. SWOT分析 =====
+  sections.push(heading('5. SWOT分析'));
+
+  if (swot && !swot.skipped) {
+    const effectiveStrengths = (swot.strengths || []).filter(Boolean).length > 0
+      ? swot.strengths.filter(Boolean)
+      : (step0.top5 || []).map(t => t.name).filter(Boolean);
+    const weaknesses = (swot.weaknesses || []).filter(Boolean);
+    const opportunities = (swot.opportunities || []).filter(Boolean);
+    const threats = (swot.threats || []).filter(Boolean);
+
+    // 5.1 SWOT 2x2 grid
+    if (effectiveStrengths.length + weaknesses.length + opportunities.length + threats.length > 0) {
+      sections.push(heading('5.1 SWOT 4象限', HeadingLevel.HEADING_2));
+      const swotRows = [
+        // 内部要因ヘッダー
+        new TableRow({
+          children: [
+            cell('内部要因', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, width: 50 }),
+            cell('外部要因', { bold: true, shading: COLORS.headerBg, align: AlignmentType.CENTER, width: 50 }),
+          ],
+        }),
+        // S / O ヘッダー＋内容
+        new TableRow({
+          children: [
+            cell('💪 強み (Strengths)', { bold: true, shading: COLORS.strengthBg, color: '1E40AF' }),
+            cell('🌱 機会 (Opportunities)', { bold: true, shading: COLORS.opportunityBg, color: '065F46' }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            cell(effectiveStrengths.length > 0 ? effectiveStrengths.map(s => `• ${s}`) : ['（未入力）']),
+            cell(opportunities.length > 0 ? opportunities.map(o => `• ${o}`) : ['（未入力）']),
+          ],
+        }),
+        // W / T ヘッダー＋内容
+        new TableRow({
+          children: [
+            cell('⚡ 弱み (Weaknesses)', { bold: true, shading: COLORS.weaknessBg, color: '991B1B' }),
+            cell('⚠️ 脅威 (Threats)', { bold: true, shading: COLORS.threatBg, color: '92400E' }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            cell(weaknesses.length > 0 ? weaknesses.map(w => `• ${w}`) : ['（未入力）']),
+            cell(threats.length > 0 ? threats.map(t => `• ${t}`) : ['（未入力）']),
+          ],
+        }),
+      ];
+      sections.push(new Table({ rows: swotRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+    }
+
+    // 5.2 クロス戦略
+    const cs = swot.crossStrategies || {};
+    if (cs.so || cs.st || cs.wo || cs.wt) {
+      sections.push(heading('5.2 クロスSWOT戦略', HeadingLevel.HEADING_2));
+      const crossEntries = [
+        { key: 'so', label: 'SO戦略', sub: '強み × 機会（積極攻勢）', color: '1E40AF', shading: COLORS.strengthBg, text: cs.so },
+        { key: 'st', label: 'ST戦略', sub: '強み × 脅威（差別化）', color: '7C3AED', shading: COLORS.headerBg, text: cs.st },
+        { key: 'wo', label: 'WO戦略', sub: '弱み × 機会（段階的克服）', color: '065F46', shading: COLORS.opportunityBg, text: cs.wo },
+        { key: 'wt', label: 'WT戦略', sub: '弱み × 脅威（防衛・撤退）', color: '991B1B', shading: COLORS.weaknessBg, text: cs.wt },
+      ];
+      crossEntries.forEach(entry => {
+        if (!entry.text) return;
+        sections.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${entry.label}`, size: 26, bold: true, color: entry.color }),
+            new TextRun({ text: `  〔${entry.sub}〕`, size: 18, color: '6B7280' }),
+          ],
+          spacing: { before: 240, after: 80 },
+        }));
+        sections.push(...multiLine(entry.text));
+      });
+    }
+
+    if (aiComments?.swotComment) {
+      sections.push(
+        heading('5.3 SWOT総評（AIコメント）', HeadingLevel.HEADING_2),
+        ...multiLine(aiComments.swotComment),
+      );
+    }
+  } else {
+    sections.push(para('SWOT分析はスキップされました。'));
+  }
+  sections.push(pageBreak());
+
+  // ===== 6. 総合戦略 =====
+  if (aiComments?.overallStrategy) {
     sections.push(
-      new Paragraph({ text: '5. 総合戦略コメント', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-      new Paragraph({ text: aiComments.overallStrategy, spacing: { after: 200 } }),
+      heading('6. 総合戦略サマリー'),
+      ...multiLine(aiComments.overallStrategy),
     );
   }
 
   const doc = new Document({
-    sections: [{ properties: {}, children: sections }],
+    creator: 'STP分析支援アプリ',
+    title: settings.projectName || 'STP分析レポート',
+    description: `${settings.companyName || ''} STP分析レポート`,
+    sections: [{
+      properties: {},
+      children: sections,
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({ text: `${settings.projectName || 'STP分析'} — `, size: 16, color: '999999' }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '999999' }),
+                new TextRun({ text: ' / ', size: 16, color: '999999' }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '999999' }),
+              ],
+            }),
+          ],
+        }),
+      },
+    }],
   });
 
   const buffer = await Packer.toBlob(doc);

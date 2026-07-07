@@ -83,13 +83,16 @@ export const BTOC_SEGMENTS = [
 ];
 
 /** ターゲティング評価軸 */
+/** ターゲティング評価軸（6R対応）
+ * 6R: Realistic Scale / Rate of Growth / Rival / Rank (=自社適合性) / Reach / Response (=収益性)
+ */
 export const DEFAULT_TARGETING_AXES = [
-  { id: 'ta1', name: '市場規模', description: 'そのセグメントの顧客数・売上ポテンシャルはどれくらいか' },
-  { id: 'ta2', name: '成長性', description: '今後3〜5年でそのセグメントは拡大するか' },
-  { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強く市場参入が難しいか（逆スコア：弱いほど高評価）' },
-  { id: 'ta4', name: '自社適合性', description: '自社の強み・リソース・既存顧客との親和性はどれくらいか' },
-  { id: 'ta5', name: '到達可能性', description: 'そのセグメントに対して効果的にアプローチできるか（営業・販路・コスト面）' },
-  { id: 'ta6', name: '収益性', description: '価格転嫁のしやすさ・粗利率など収益を確保しやすいか' },
+  { id: 'ta1', name: '市場規模', description: 'そのセグメントの顧客数・売上ポテンシャルはどれくらいか', sixR: 'Realistic Scale' },
+  { id: 'ta2', name: '成長性', description: '今後3〜5年でそのセグメントは拡大するか', sixR: 'Rate of Growth' },
+  { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強く市場参入が難しいか（逆スコア：弱いほど高評価）', sixR: 'Rival' },
+  { id: 'ta4', name: '自社適合性', description: '自社の強み・リソース・既存顧客との親和性はどれくらいか', sixR: 'Rank' },
+  { id: 'ta5', name: '到達可能性', description: 'そのセグメントに対して効果的にアプローチできるか（営業・販路・コスト面）', sixR: 'Reach' },
+  { id: 'ta6', name: '収益性', description: '価格転嫁のしやすさ・粗利率など収益を確保しやすいか', sixR: 'Response' },
 ];
 
 /** ポジショニング デフォルト軸 */
@@ -109,10 +112,14 @@ export function createInitialProject() {
       companyName: '',
       marketType: 'btob',
       productService: '',
+      businessDescription: '',
     },
     step0: {
       categories: VALUE_CHAIN_CATEGORIES.map(cat => ({
         id: cat.id,
+        categoryName: cat.name,
+        categoryDescription: cat.description,
+        categoryType: cat.type,
         items: cat.items.map((item, idx) => ({
           id: `${cat.id}_${idx}`,
           name: item,
@@ -131,12 +138,15 @@ export function createInitialProject() {
       segments: {},
     },
     step2: {
+      // ターゲット候補: セグメントの掛け算で作る顧客像
+      candidates: [], // [{ id, name, segments: [{axisId, axisName, segName}], memo }]
       axes: DEFAULT_TARGETING_AXES.map(a => ({ ...a, weight: 'low' })),
-      scores: {},
-      targets: {},
+      scores: {},   // { candidateId_axisId: 1-5 }
+      targets: {},  // { candidateId: { label: 'main'|'sub'|'none', reason } }
     },
     step3: {
       skipped: false,
+      kbf: [], // 購買決定要因 Key Buying Factors: [{ id, name, importance }]
       competitors: [],
       axes: [],
       scores: {},
@@ -147,10 +157,24 @@ export function createInitialProject() {
       ],
       quadrantLabels: {},
     },
+    swot: {
+      strengths: [],
+      weaknesses: [],
+      opportunities: [],
+      threats: [],
+      crossStrategies: {
+        so: '', // 強み×機会
+        st: '', // 強み×脅威
+        wo: '', // 弱み×機会
+        wt: '', // 弱み×脅威
+      },
+      skipped: false,
+    },
     aiComments: {
       strengthSummary: '',
       targetingRationale: '',
       positioningComment: '',
+      swotComment: '',
       overallStrategy: '',
     },
     aiSettings: {
@@ -158,6 +182,11 @@ export function createInitialProject() {
       apiKey: '',
       model: 'claude-sonnet-4-6',
       tone: 'formal',
+    },
+    customization: {
+      theme: 'light', // light / dark
+      brandColor: '#2563eb',
+      logoUrl: '',
     },
   };
 }

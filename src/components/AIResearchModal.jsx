@@ -14,6 +14,7 @@ export default function AIResearchModal({ onClose, onComplete }) {
   const [stage, setStage] = useState('input');
   const [companyName, setCompanyName] = useState(s.companyName || '');
   const [productService, setProductService] = useState(s.productService || '');
+  const [businessDescription, setBusinessDescription] = useState(s.businessDescription || '');
   const [marketType, setMarketType] = useState(s.marketType || 'btob');
 
   // プログレス
@@ -65,7 +66,7 @@ export default function AIResearchModal({ onClose, onComplete }) {
   // リサーチ実行
   const startResearch = useCallback(async () => {
     // 設定を即反映
-    dispatch({ type: 'UPDATE_SETTINGS', payload: { companyName, productService, marketType } });
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { companyName, productService, businessDescription, marketType } });
 
     setStage('running');
     setCurrentPhase(0);
@@ -79,9 +80,11 @@ export default function AIResearchModal({ onClose, onComplete }) {
     abortRef.current = controller;
 
     try {
+      // productService + businessDescription を結合してAIに渡す
+      const fullDescription = [productService, businessDescription].filter(Boolean).join('\n');
       await runFullResearch(
         companyName,
-        productService,
+        fullDescription,
         marketType,
         project.aiSettings,
         {
@@ -169,13 +172,24 @@ export default function AIResearchModal({ onClose, onComplete }) {
                   />
                 </div>
                 <div>
-                  <label className="label-text">製品・サービスの概要 <span className="text-danger">*</span></label>
-                  <textarea
-                    className="textarea-field min-h-[80px]"
+                  <label className="label-text">製品・サービス名</label>
+                  <input
+                    type="text"
+                    className="input-field"
                     value={productService}
                     onChange={(e) => setProductService(e.target.value)}
-                    placeholder="例：精密切削工具の製造・販売。エンドミル・ドリル・リーマ等の特注品を中心に、航空宇宙・半導体向けの高精度加工に強み。"
+                    placeholder="例：精密切削工具（エンドミル・ドリル・リーマ等）"
                   />
+                </div>
+                <div>
+                  <label className="label-text">事業内容・特徴 <span className="text-danger">*</span></label>
+                  <textarea
+                    className="textarea-field min-h-[100px]"
+                    value={businessDescription}
+                    onChange={(e) => setBusinessDescription(e.target.value)}
+                    placeholder="例：創業50年の精密切削工具メーカー。超硬合金・ハイス鋼を素材とするエンドミル・ドリル・リーマの製造に特化。5軸CNC研削盤による微細加工技術と、1本からの特注対応が強み。主要顧客は航空宇宙・半導体・自動車部品メーカー。従業員45名、年商8億円。"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">詳しく書くほどAIの分析精度が上がります（200〜500字程度推奨）</p>
                 </div>
                 <div>
                   <label className="label-text">対象市場タイプ</label>
@@ -317,7 +331,7 @@ export default function AIResearchModal({ onClose, onComplete }) {
               <button onClick={onClose} className="btn-secondary">キャンセル</button>
               <button
                 onClick={startResearch}
-                disabled={!companyName.trim() || !productService.trim()}
+                disabled={!companyName.trim() || (!productService.trim() && !businessDescription.trim())}
                 className="btn-primary"
               >
                 🔍 リサーチ開始

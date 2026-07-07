@@ -1,7 +1,71 @@
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef, useState } from 'react';
 import { createInitialProject } from '../data/defaultData';
 
 const ProjectContext = createContext(null);
+const STORAGE_KEY = 'stpAnalysisProject_v1';
+const HISTORY_KEY = 'stpAnalysisProjects_v1'; // プロジェクト一覧
+const MAX_UNDO = 30;
+
+/** 古いデータ構造を最新に移行 */
+function migrateProject(data) {
+  // v1→v2: swotフィールドを追加
+  if (!data.swot) {
+    data.swot = {
+      strengths: [], weaknesses: [], opportunities: [], threats: [],
+      crossStrategies: { so: '', st: '', wo: '', wt: '' },
+      skipped: false,
+    };
+  }
+  // v2→v3: step3.kbfフィールドを追加
+  if (data.step3 && !data.step3.kbf) {
+    data.step3.kbf = [];
+  }
+  // v1→v2: customizationフィールドを追加
+  if (!data.customization) {
+    data.customization = { theme: 'light', brandColor: '#2563eb', logoUrl: '' };
+  }
+  // v1→v2: aiComments.swotComment を追加
+  if (!data.aiComments) data.aiComments = {};
+  if (!data.aiComments.swotComment) data.aiComments.swotComment = '';
+  return data;
+}
+
+/** localStorage から復元 */
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = migrateProject(JSON.parse(raw));
+      if (data.aiSettings) data.aiSettings.apiKey = '';
+      return data;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+/** localStorage に保存（apiKey除外） */
+function saveToStorage(state) {
+  try {
+    const data = { ...state, aiSettings: { ...state.aiSettings, apiKey: '' } };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // 最終保存時刻を返す
+    return new Date().toLocaleTimeString('ja-JP');
+  } catch { return null; }
+}
+
+/** プロジェクト一覧の管理 */
+function loadProjectList() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveProjectList(list) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch { /* ignore */ }
+}
 
 function projectReducer(state, action) {
   switch (action.type) {
@@ -17,10 +81,14 @@ function projectReducer(state, action) {
       return { ...state, step2: { ...state.step2, ...action.payload } };
     case 'UPDATE_STEP3':
       return { ...state, step3: { ...state.step3, ...action.payload } };
+    case 'UPDATE_SWOT':
+      return { ...state, swot: { ...state.swot, ...action.payload } };
     case 'UPDATE_AI_COMMENTS':
       return { ...state, aiComments: { ...state.aiComments, ...action.payload } };
     case 'UPDATE_AI_SETTINGS':
       return { ...state, aiSettings: { ...state.aiSettings, ...action.payload } };
+    case 'UPDATE_CUSTOMIZATION':
+      return { ...state, customization: { ...state.customization, ...action.payload } };
     case 'RESET':
       return createInitialProject();
     default:
@@ -28,12 +96,82 @@ function projectReducer(state, action) {
   }
 }
 
+function initProject() {
+  return loadFromStorage() || createInitialProject();
+}
+
 export function ProjectProvider({ children }) {
-  const [project, dispatch] = useReducer(projectReducer, null, createInitialProject);
+  const [project, dispatch] = useReducer(projectReducer, null, initProject);
+
+  // Undo/Redo 履歴
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const isUndoRedo = useRef(false);
+  const prevState = useRef(null);
+  const [lastSaved, setLastSaved] = useState('');
+
+  // 自動保存: state変更のたびにlocalStorageに保存（300msデバウンス）
+  const saveTimer = useRef(null);
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const time = saveToStorage(project);
+      if (time) setLastSaved(time);
+
+      // Undo履歴に追加（Undo/Redo操作自体でない場合のみ）
+      if (!isUndoRedo.current && prevState.current) {
+        undoStack.current.push(prevState.current);
+        if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
+        redoStack.current = [];
+      }
+      isUndoRedo.current = false;
+      prevState.current = JSON.parse(JSON.stringify(project));
+    }, 300);
+    return () => clearTimeout(saveTimer.current);
+  }, [project]);
+
+  // 初回のprevState設定
+  useEffect(() => {
+    prevState.current = JSON.parse(JSON.stringify(project));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const undo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    const prev = undoStack.current.pop();
+    redoStack.current.push(JSON.parse(JSON.stringify(project)));
+    isUndoRedo.current = true;
+    // API keyを保持
+    prev.aiSettings = { ...prev.aiSettings, apiKey: project.aiSettings.apiKey };
+    dispatch({ type: 'SET_PROJECT', payload: prev });
+  }, [project]);
+
+  const redo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    const next = redoStack.current.pop();
+    undoStack.current.push(JSON.parse(JSON.stringify(project)));
+    isUndoRedo.current = true;
+    next.aiSettings = { ...next.aiSettings, apiKey: project.aiSettings.apiKey };
+    dispatch({ type: 'SET_PROJECT', payload: next });
+  }, [project]);
+
+  const canUndo = undoStack.current.length > 0;
+  const canRedo = redoStack.current.length > 0;
+
+  // Ctrl+Z / Ctrl+Shift+Z キーボードショートカット
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo]);
 
   const saveToFile = useCallback(() => {
     const data = { ...project };
-    // APIキーは保存しない
     const saveData = { ...data, aiSettings: { ...data.aiSettings, apiKey: '' } };
     const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
     const name = project.settings.projectName || 'STP分析';
@@ -66,8 +204,93 @@ export function ProjectProvider({ children }) {
     input.click();
   }, []);
 
+  // プロジェクト一覧管理
+  const saveProjectToList = useCallback(() => {
+    const list = loadProjectList();
+    const name = project.settings.projectName || '無題プロジェクト';
+    const id = project._projectId || `proj_${Date.now()}`;
+    const entry = {
+      id,
+      name,
+      companyName: project.settings.companyName,
+      marketType: project.settings.marketType,
+      updatedAt: new Date().toISOString(),
+      createdAt: list.find(p => p.id === id)?.createdAt || new Date().toISOString(),
+    };
+    // 既存エントリを更新、なければ先頭に追加
+    const idx = list.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      list[idx] = entry;
+    } else {
+      list.unshift(entry);
+    }
+    saveProjectList(list);
+
+    // プロジェクトデータ自体も個別に保存
+    const saveData = { ...project, _projectId: id, aiSettings: { ...project.aiSettings, apiKey: '' } };
+    try { localStorage.setItem(`stpProject_${id}`, JSON.stringify(saveData)); } catch { /* */ }
+
+    // _projectId をstateにセット
+    if (!project._projectId) {
+      dispatch({ type: 'SET_PROJECT', payload: { ...project, _projectId: id } });
+    }
+    return id;
+  }, [project]);
+
+  const loadProjectFromList = useCallback((id) => {
+    try {
+      const raw = localStorage.getItem(`stpProject_${id}`);
+      if (raw) {
+        const data = JSON.parse(raw);
+        data.aiSettings = { ...data.aiSettings, apiKey: project.aiSettings.apiKey };
+        dispatch({ type: 'SET_PROJECT', payload: data });
+        return true;
+      }
+    } catch { /* */ }
+    return false;
+  }, [project.aiSettings.apiKey]);
+
+  const deleteProjectFromList = useCallback((id) => {
+    const list = loadProjectList().filter(p => p.id !== id);
+    saveProjectList(list);
+    try { localStorage.removeItem(`stpProject_${id}`); } catch { /* */ }
+  }, []);
+
+  const getProjectList = useCallback(() => loadProjectList(), []);
+
+  const duplicateProject = useCallback((id) => {
+    try {
+      const raw = localStorage.getItem(`stpProject_${id}`);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const newId = `proj_${Date.now()}`;
+      data._projectId = newId;
+      data.settings.projectName = `${data.settings.projectName || '無題'} (コピー)`;
+      data.aiSettings.apiKey = '';
+      localStorage.setItem(`stpProject_${newId}`, JSON.stringify(data));
+
+      const list = loadProjectList();
+      list.unshift({
+        id: newId,
+        name: data.settings.projectName,
+        companyName: data.settings.companyName,
+        marketType: data.settings.marketType,
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+      saveProjectList(list);
+      return newId;
+    } catch { return null; }
+  }, []);
+
   return (
-    <ProjectContext.Provider value={{ project, dispatch, saveToFile, loadFromFile }}>
+    <ProjectContext.Provider value={{
+      project, dispatch,
+      saveToFile, loadFromFile,
+      undo, redo, canUndo, canRedo,
+      lastSaved,
+      saveProjectToList, loadProjectFromList, deleteProjectFromList, getProjectList, duplicateProject,
+    }}>
       {children}
     </ProjectContext.Provider>
   );

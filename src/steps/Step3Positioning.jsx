@@ -51,10 +51,21 @@ export default function Step3Positioning({ onNext, onBack, onSkipToExport, onUns
   const top5 = project.step0.top5 || [];
   const showTop5 = top5.length > 0 && !project.step0.skipped;
 
-  // Target persona display
-  const mainTargets = Object.entries(project.step2.targets || {})
-    .filter(([, v]) => v.label === 'main' || v.label === 'sub')
-    .map(([id, v]) => ({ id, ...v }));
+  // Target persona display（新candidates構造 + 旧構造に対応）
+  const mainTargets = useMemo(() => {
+    const candidates = project.step2.candidates || [];
+    const targets = project.step2.targets || {};
+    if (candidates.length > 0) {
+      // 新構造: candidates からターゲットを取得
+      return candidates
+        .filter(c => targets[c.id]?.label === 'main' || targets[c.id]?.label === 'sub')
+        .map(c => ({ id: c.id, label: targets[c.id].label, persona: c.name, reason: targets[c.id].reason, segments: c.segments }));
+    }
+    // 旧構造: 互換
+    return Object.entries(targets)
+      .filter(([, v]) => v.label === 'main' || v.label === 'sub')
+      .map(([id, v]) => ({ id, ...v }));
+  }, [project.step2]);
 
   const allSegments = useMemo(() => {
     const segs = [];
@@ -171,22 +182,157 @@ export default function Step3Positioning({ onNext, onBack, onSkipToExport, onUns
         </div>
       </div>
 
-      {/* Target display */}
-      {mainTargets.length > 0 && (
-        <div className="card mb-4 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-gray-700">🎯 ターゲット顧客像：</span>
-            {mainTargets.map(t => {
-              const seg = allSegments.find(s => s.id === t.id);
-              return (
-                <span key={t.id} className={`step-badge ${t.label === 'main' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
-                  {t.persona || seg?.name || t.id}
-                </span>
-              );
-            })}
-          </div>
+      {/* ターゲット顧客＆KBF（購買決定要因） */}
+      <div className="card mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold text-gray-700">🎯 ターゲット顧客と購買決定要因（KBF）</h3>
         </div>
-      )}
+
+        {mainTargets.length > 0 ? (
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 mb-2">Step 2で選定したターゲット顧客</p>
+            <div className="flex flex-wrap gap-2">
+              {mainTargets.map(t => {
+                const seg = allSegments.find(s => s.id === t.id);
+                return (
+                  <div key={t.id} className={`px-3 py-2 rounded-lg border-2 ${t.label === 'main' ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${t.label === 'main' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
+                        {t.label === 'main' ? 'メイン' : 'サブ'}
+                      </span>
+                      <span className="text-sm font-bold text-gray-800">{t.persona || t.name || t.id}</span>
+                    </div>
+                    {t.segments?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {t.segments.map((s, i) => (
+                          <span key={i} className="text-[9px] px-1.5 py-0.5 bg-white rounded-full border border-gray-200 text-gray-500">{s.axisName}: {s.segName}</span>
+                        ))}
+                      </div>
+                    )}
+                    {t.reason && <p className="text-[10px] text-gray-500 mt-1 ml-1">{t.reason}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-400">
+            Step 2でターゲット顧客が選定されていません。先にStep 2を完了してください。
+          </div>
+        )}
+
+        {/* KBF: 購買決定要因 */}
+        <div className="border-t border-gray-200 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-bold text-gray-700">
+                📋 購買決定要因（KBF）
+              </p>
+              <p className="text-xs text-gray-400">
+                ターゲット顧客が商品・サービスを選ぶ際に重視するポイントを洗い出してください。これがポジショニング軸の候補になります。
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {(step3.kbf || []).length > 0 && (
+                <button
+                  onClick={() => {
+                    const kbfNames = (step3.kbf || []).filter(k => k.name).map((k, idx) => ({ id: `pa_${idx}`, name: k.name }));
+                    if (kbfNames.length > 0) {
+                      dispatch({ type: 'UPDATE_STEP3', payload: { axes: kbfNames } });
+                    }
+                  }}
+                  className="btn-accent btn-sm"
+                >
+                  KBFをポジショニング軸に反映 →
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  const id = `kbf_${Date.now()}`;
+                  dispatch({ type: 'UPDATE_STEP3', payload: { kbf: [...(step3.kbf || []), { id, name: '', importance: 'high' }] } });
+                }}
+                className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer"
+              >
+                + 追加
+              </button>
+            </div>
+          </div>
+
+          {(!step3.kbf || step3.kbf.length === 0) ? (
+            <div className="grid grid-cols-2 gap-2">
+              {/* KBFの入力例チップ */}
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-[10px] font-bold text-gray-500 mb-1.5">入力例（クリックで追加）</p>
+                <div className="flex flex-wrap gap-1">
+                  {(marketType === 'btob'
+                    ? ['品質・精度', '価格', '納期', '技術サポート', 'カスタム対応', '実績・信頼性', '小ロット対応', '提案力']
+                    : ['品質', '価格', '立地・アクセス', 'デザイン', 'ブランド', '接客・サービス', '品揃え', '口コミ評価']
+                  ).map(name => (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        const id = `kbf_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                        dispatch({ type: 'UPDATE_STEP3', payload: { kbf: [...(step3.kbf || []), { id, name, importance: 'high' }] } });
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors"
+                    >
+                      + {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-[10px] font-bold text-blue-600 mb-1">💡 KBFとは？</p>
+                <p className="text-[10px] text-blue-500 leading-relaxed">
+                  Key Buying Factor（購買決定要因）＝ ターゲット顧客が「どの会社（商品）を選ぶか」を決める際に重視する要素。
+                  ここで整理したKBFがそのままポジショニングマップの軸候補になります。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {(step3.kbf || []).map((kbf, idx) => (
+                <div key={kbf.id} className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-300 w-4 text-right shrink-0">{idx + 1}</span>
+                  <input
+                    type="text"
+                    className="input-field text-sm flex-1 py-1"
+                    value={kbf.name}
+                    onChange={(e) => {
+                      const newKbf = (step3.kbf || []).map(k => k.id === kbf.id ? { ...k, name: e.target.value } : k);
+                      dispatch({ type: 'UPDATE_STEP3', payload: { kbf: newKbf } });
+                    }}
+                    placeholder="購買決定要因を入力..."
+                  />
+                  <div className="flex gap-0.5 shrink-0">
+                    {['high', 'medium', 'low'].map(imp => (
+                      <button
+                        key={imp}
+                        onClick={() => {
+                          const newKbf = (step3.kbf || []).map(k => k.id === kbf.id ? { ...k, importance: imp } : k);
+                          dispatch({ type: 'UPDATE_STEP3', payload: { kbf: newKbf } });
+                        }}
+                        className={`text-[9px] px-1.5 py-0.5 rounded cursor-pointer transition-colors
+                          ${kbf.importance === imp
+                            ? imp === 'high' ? 'bg-red-500 text-white' : imp === 'medium' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                      >
+                        {imp === 'high' ? '高' : imp === 'medium' ? '中' : '低'}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      dispatch({ type: 'UPDATE_STEP3', payload: { kbf: (step3.kbf || []).filter(k => k.id !== kbf.id) } });
+                    }}
+                    className="text-gray-300 hover:text-red-500 cursor-pointer shrink-0"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Competitor settings */}

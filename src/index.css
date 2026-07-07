@@ -18,9 +18,27 @@
     font-family: var(--font-sans);
     background-color: #f8fafc;
     color: #1e293b;
-    min-width: 1024px;
+    min-width: 320px;
   }
   h1, h2, h3, h4 { font-weight: 700; }
+
+  /* ダークモード */
+  html.dark body {
+    background-color: #0f172a;
+    color: #e2e8f0;
+  }
+}
+
+/* タブレット以下でヘッダーボタンを折り返し */
+@media (max-width: 1023px) {
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .header-actions .btn {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+  }
 }
 
 @utility btn {
@@ -68,6 +86,8 @@
   border: 1px solid #d1d5db;
   &:hover { background-color: #f9fafb; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
+  .dark & { background-color: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark &:hover { background-color: #334155; }
 }
 
 @utility btn-accent {
@@ -114,6 +134,7 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   border: 1px solid #e5e7eb;
   padding: 1.5rem;
+  .dark & { background-color: #1e293b; border-color: #334155; }
 }
 
 @utility input-field {
@@ -128,6 +149,7 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
   }
+  .dark & { background-color: #0f172a; border-color: #475569; color: #e2e8f0; }
 }
 
 @utility textarea-field {
@@ -143,6 +165,7 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
   }
+  .dark & { background-color: #0f172a; border-color: #475569; color: #e2e8f0; }
 }
 
 @utility label-text {
@@ -151,6 +174,7 @@
   font-weight: 600;
   color: #374151;
   margin-bottom: 0.25rem;
+  .dark & { color: #cbd5e1; }
 }
 
 @utility section-title {
@@ -158,6 +182,7 @@
   font-weight: 700;
   color: #1f2937;
   margin-bottom: 1rem;
+  .dark & { color: #f1f5f9; }
 }
 
 @utility step-badge {
@@ -170,8 +195,89 @@
   font-weight: 700;
 }
 
+/* ダークモード: ナビゲーション */
+html.dark nav {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+/* ========== ランディングページ ========== */
+.landing-container {
+  animation: landingFadeIn 0.5s ease-out;
+}
+.landing-exit {
+  animation: landingFadeOut 0.5s ease-in forwards;
+}
+@keyframes landingFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes landingFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.05); }
+}
+
+.landing-text-gradient {
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-cta {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  box-shadow: 0 0 40px rgba(37, 99, 235, 0.3);
+}
+.landing-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: inherit;
+}
+.landing-cta:hover::before { opacity: 1; }
+
+.landing-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(147, 197, 253, 0.3);
+  animation: particleFloat linear infinite;
+  pointer-events: none;
+}
+@keyframes particleFloat {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-200px) scale(0); opacity: 0; }
+}
+
+.landing-glow {
+  animation: glowPulse 6s ease-in-out infinite;
+}
+.landing-glow-2 {
+  animation: glowPulse 8s ease-in-out infinite reverse;
+}
+@keyframes glowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+.landing-feature-card {
+  animation: featureSlideUp 0.6s ease-out both;
+}
+@keyframes featureSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 印刷 */
 @media print {
-  body { min-width: auto; }
+  body { min-width: auto; background: white; color: black; }
   .no-print { display: none !important; }
   .print-break { page-break-before: always; }
+  header, nav { display: none !important; }
+  main { padding: 0 !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
 }

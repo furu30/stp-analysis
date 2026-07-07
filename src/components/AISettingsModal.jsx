@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useProject } from '../context/ProjectContext';
+import CustomizationPanel from './CustomizationPanel';
 
 const PROVIDERS = [
   {
@@ -45,6 +47,7 @@ const PROVIDERS = [
 export default function AISettingsModal({ onClose }) {
   const { project, dispatch } = useProject();
   const s = project.aiSettings;
+  const [tab, setTab] = useState('ai');
 
   const update = (payload) => dispatch({ type: 'UPDATE_AI_SETTINGS', payload });
   const currentProvider = PROVIDERS.find(p => p.id === s.provider);
@@ -53,11 +56,31 @@ export default function AISettingsModal({ onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold">🤖 AIプロバイダー設定</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">⚙️ 設定</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl cursor-pointer">✕</button>
         </div>
 
+        {/* タブ */}
+        <div className="flex gap-1 mb-5 border-b border-gray-200">
+          {[
+            { id: 'ai', label: '🤖 AI設定' },
+            { id: 'customize', label: '🎨 カスタマイズ' },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-all cursor-pointer
+                ${tab === t.id ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'customize' ? (
+          <CustomizationPanel />
+        ) : (
         <div className="space-y-5">
           {/* プロバイダー選択 */}
           <div>
@@ -176,6 +199,7 @@ export default function AISettingsModal({ onClose }) {
             </div>
           </div>
         </div>
+        )}
 
         <div className="mt-6 flex justify-end">
           <button onClick={onClose} className="btn-primary">設定を閉じる</button>

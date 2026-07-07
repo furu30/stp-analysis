@@ -1,55 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useProject } from '../context/ProjectContext';
 import AICommentBox from '../components/AICommentBox';
+import HelpTip from '../components/HelpTip';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  ScatterChart, Scatter, ZAxis, Legend, LabelList,
 } from 'recharts';
-
-/**
- * バブルチャートのラベル: 番号表示 + 凡例テーブル方式
- * - 各バブルの中心付近に太い番号を表示
- * - 白ハロー(paintOrder)で背景を問わず高視認性
- */
-function renderBubbleNumberLabel(props) {
-  const { x, y, value } = props;
-  return (
-    <text
-      x={x}
-      y={y + 5}
-      textAnchor="middle"
-      fontSize={11}
-      fontWeight={900}
-      fill="#1e293b"
-      stroke="#fff"
-      strokeWidth={3}
-      paintOrder="stroke"
-    >
-      {value}
-    </text>
-  );
-}
-
-/**
- * 同じ座標のデータポイントをずらして重なりを防ぐ
- * @param {Array} data - [{x, y, ...}]
- * @param {number} offset - ずらし量
- * @returns {Array} ずらし済みデータ
- */
-function jitterOverlaps(data, offset = 0.15) {
-  const seen = new Map();
-  return data.map(d => {
-    const key = `${d.x}_${d.y}`;
-    const count = seen.get(key) || 0;
-    seen.set(key, count + 1);
-    if (count === 0) return d;
-    // 同座標の2番目以降を放射状にずらす
-    const angles = [0, Math.PI, Math.PI / 2, -Math.PI / 2, Math.PI / 4, -Math.PI / 4];
-    const angle = angles[(count - 1) % angles.length];
-    const r = offset * Math.ceil(count / angles.length);
-    return { ...d, x: d.x + r * Math.cos(angle), y: d.y + r * Math.sin(angle) };
-  });
-}
 
 const WEIGHT_OPTIONS = [
   { value: 'high', label: '高', multiplier: 3, color: 'bg-red-100 text-red-700 ring-red-300', barColor: '#ef4444' },
@@ -63,119 +18,32 @@ const TARGET_LABELS = [
   { value: 'none', label: '対象外', color: 'bg-gray-300 text-gray-600' },
 ];
 
-function StepBadge({ num, label, done, active }) {
+/** Step0の強み参照パネル */
+function StrengthsReferencePanel({ top5, companyName }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!top5 || top5.length === 0) return null;
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all
-      ${done ? 'bg-green-100 text-green-700' : active ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black
-        ${done ? 'bg-green-500 text-white' : active ? 'bg-white text-primary' : 'bg-gray-300 text-white'}`}>
-        {done ? '✓' : num}
-      </span>
-      {label}
-    </div>
-  );
-}
-
-/** セグメントタグ掛け合わせで顧客像名を作れるカード */
-function PersonaCard({ seg, targets, setTargetField, allSegments, selectedAxes, segmentsByAxis }) {
-  const persona = targets[seg.id]?.persona || '';
-
-  // 切り口ごとにセグメントをグループ化
-  const axisGroups = useMemo(() => {
-    return selectedAxes.map(axis => ({
-      axisName: axis.name,
-      axisId: axis.id,
-      segments: (segmentsByAxis[axis.id] || []).filter(s => s.name),
-    })).filter(g => g.segments.length > 0);
-  }, [selectedAxes, segmentsByAxis]);
-
-  // タグをクリックして顧客像名に追加/削除
-  const toggleTag = (segName) => {
-    const parts = persona ? persona.split('×').map(s => s.trim()).filter(Boolean) : [];
-    const idx = parts.indexOf(segName);
-    let newParts;
-    if (idx >= 0) {
-      newParts = parts.filter((_, i) => i !== idx);
-    } else {
-      newParts = [...parts, segName];
-    }
-    setTargetField(seg.id, 'persona', newParts.join('×'));
-  };
-
-  const personaParts = persona ? persona.split('×').map(s => s.trim()).filter(Boolean) : [];
-
-  return (
-    <div className={`border rounded-lg p-3 mb-3 ${seg.target?.label === 'main' ? 'border-red-200 bg-red-50/30' : 'border-amber-200 bg-amber-50/30'}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`step-badge ${seg.target?.label === 'main' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
-          {seg.target?.label === 'main' ? 'メイン' : 'サブ'}
-        </span>
-        <span className="font-semibold text-sm">{seg.name}</span>
-        <span className="text-xs text-gray-400 ml-auto">加重スコア: {seg.totalWeighted}点</span>
-      </div>
-
-      {/* 顧客像名ビルダー */}
-      <div className="mb-3">
-        <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
-          顧客像名 <span className="font-normal text-gray-400">— タグをクリックして掛け合わせ、または直接入力</span>
-        </label>
-
-        {/* タグ選択エリア */}
-        <div className="p-2.5 bg-white border border-gray-200 rounded-lg mb-2 space-y-2">
-          {axisGroups.map(group => (
-            <div key={group.axisId} className="flex items-start gap-2">
-              <span className="text-[10px] font-bold text-gray-400 w-16 shrink-0 pt-1 text-right">{group.axisName}</span>
-              <div className="flex flex-wrap gap-1">
-                {group.segments.map(s => {
-                  const isSelected = personaParts.includes(s.name);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => toggleTag(s.name)}
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-all border
-                        ${isSelected
-                          ? 'bg-primary text-white border-primary shadow-sm'
-                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-primary/50 hover:bg-blue-50'}`}
-                    >
-                      {isSelected && '✓ '}{s.name}
-                    </button>
-                  );
-                })}
+    <div className="mb-4 border border-blue-200 rounded-lg bg-blue-50/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-3 text-sm font-semibold text-blue-700 cursor-pointer"
+      >
+        <span>💪 {companyName || '自社'}のTop5強み（Step 0で選定済）— 自社適合性の参考に</span>
+        <span className="text-xs">{expanded ? '▲ 閉じる' : '▼ 開く'}</span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-1.5">
+          {top5.map((item, idx) => (
+            <div key={item.id} className="flex items-start gap-2 text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 text-[10px] font-bold">{idx + 1}</span>
+              <div>
+                <span className="font-semibold text-gray-700">{item.name}</span>
+                {item.categoryName && <span className="text-gray-400 ml-1">({item.categoryName})</span>}
               </div>
             </div>
           ))}
         </div>
-
-        {/* 結合結果プレビュー＋直接編集 */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 shrink-0">結果：</span>
-          <input
-            type="text"
-            className="input-field text-sm flex-1"
-            value={persona}
-            onChange={(e) => setTargetField(seg.id, 'persona', e.target.value)}
-            placeholder="タグをクリックするか、直接入力してください"
-          />
-          {persona && (
-            <button
-              onClick={() => setTargetField(seg.id, 'persona', '')}
-              className="text-gray-400 hover:text-danger text-xs cursor-pointer shrink-0"
-            >✕ クリア</button>
-          )}
-        </div>
-      </div>
-
-      {/* 選定理由 */}
-      <div>
-        <label className="text-xs font-semibold text-gray-500">選定理由</label>
-        <textarea
-          className="textarea-field text-sm mt-1"
-          rows={2}
-          value={targets[seg.id]?.reason || ''}
-          onChange={(e) => setTargetField(seg.id, 'reason', e.target.value)}
-          placeholder="このセグメントをターゲットに選んだ理由を記入..."
-        />
-      </div>
+      )}
     </div>
   );
 }
@@ -183,28 +51,70 @@ function PersonaCard({ seg, targets, setTargetField, allSegments, selectedAxes, 
 export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
   const { project, dispatch } = useProject();
   const step2 = project.step2;
+  // 常にフェーズ1から表示し、全体の流れを把握してもらう
+  const [phase, setPhase] = useState(1);
 
-  // Get all defined segments from step1
-  const allSegments = useMemo(() => {
-    const segs = [];
-    for (const [axisId, segList] of Object.entries(project.step1.segments || {})) {
-      const axis = project.step1.selectedAxes.find(a => a.id === axisId);
-      for (const seg of segList) {
-        if (seg.name) {
-          segs.push({ ...seg, axisName: axis?.name || '', axisId });
-        }
-      }
+  // Step1のセグメントデータ
+  const segmentsByAxis = useMemo(() => {
+    const result = {};
+    for (const axis of (project.step1.selectedAxes || [])) {
+      result[axis.id] = {
+        axisName: axis.name,
+        segments: (project.step1.segments[axis.id] || []).filter(s => s.name),
+      };
     }
-    return segs;
+    return result;
   }, [project.step1]);
 
+  const selectedAxes = project.step1.selectedAxes || [];
+  const candidates = step2.candidates || [];
   const axes = step2.axes;
-  const scores = step2.scores;
-  const targets = step2.targets;
+  const scores = step2.scores || {};
+  const targets = step2.targets || {};
 
-  const setScore = (segId, axisId, value) => {
-    const newScores = { ...scores, [`${segId}_${axisId}`]: value };
-    dispatch({ type: 'UPDATE_STEP2', payload: { scores: newScores } });
+  // ============= Phase 1: ターゲット候補の作成 =============
+  const addCandidate = () => {
+    const id = `tc_${Date.now()}`;
+    const newCandidates = [...candidates, { id, name: '', segments: [], memo: '' }];
+    dispatch({ type: 'UPDATE_STEP2', payload: { candidates: newCandidates } });
+  };
+
+  const updateCandidate = (id, field, value) => {
+    const newCandidates = candidates.map(c => c.id === id ? { ...c, [field]: value } : c);
+    dispatch({ type: 'UPDATE_STEP2', payload: { candidates: newCandidates } });
+  };
+
+  const removeCandidate = (id) => {
+    dispatch({ type: 'UPDATE_STEP2', payload: { candidates: candidates.filter(c => c.id !== id) } });
+  };
+
+  const toggleSegmentForCandidate = (candidateId, axisId, axisName, segName) => {
+    const candidate = candidates.find(c => c.id === candidateId);
+    if (!candidate) return;
+    const segs = candidate.segments || [];
+    const existsIdx = segs.findIndex(s => s.axisId === axisId);
+    let newSegs;
+    if (existsIdx >= 0 && segs[existsIdx].segName === segName) {
+      // 同じものをクリック→解除
+      newSegs = segs.filter((_, i) => i !== existsIdx);
+    } else if (existsIdx >= 0) {
+      // 同じ軸の別セグメント→置換
+      newSegs = segs.map((s, i) => i === existsIdx ? { axisId, axisName, segName } : s);
+    } else {
+      // 新しい軸→追加
+      newSegs = [...segs, { axisId, axisName, segName }];
+    }
+    updateCandidate(candidateId, 'segments', newSegs);
+    // 名前を自動生成
+    const autoName = newSegs.map(s => s.segName).join('×');
+    if (!candidate.name || candidate.name === candidates.find(c => c.id === candidateId)?.segments?.map(s => s.segName).join('×')) {
+      updateCandidate(candidateId, 'name', autoName);
+    }
+  };
+
+  // ============= Phase 2: スコアリング =============
+  const setScore = (candidateId, axisId, value) => {
+    dispatch({ type: 'UPDATE_STEP2', payload: { scores: { ...scores, [`${candidateId}_${axisId}`]: value } } });
   };
 
   const setWeight = (axisId, weight) => {
@@ -212,395 +122,382 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
     dispatch({ type: 'UPDATE_STEP2', payload: { axes: newAxes } });
   };
 
-  const setTarget = (segId, value) => {
-    const newTargets = { ...targets, [segId]: { ...targets[segId], label: value } };
-    dispatch({ type: 'UPDATE_STEP2', payload: { targets: newTargets } });
-  };
-
-  const setTargetField = (segId, field, value) => {
-    const newTargets = { ...targets, [segId]: { ...targets[segId], [field]: value } };
-    dispatch({ type: 'UPDATE_STEP2', payload: { targets: newTargets } });
-  };
-
-  const addAxis = () => {
-    const id = `ta_custom_${Date.now()}`;
-    const newAxes = [...axes, { id, name: '', description: '', weight: 'low', isCustom: true }];
-    dispatch({ type: 'UPDATE_STEP2', payload: { axes: newAxes } });
-  };
-
-  const removeAxis = (axisId) => {
-    dispatch({ type: 'UPDATE_STEP2', payload: { axes: axes.filter(a => a.id !== axisId) } });
-  };
-
-  const updateAxisName = (axisId, name) => {
-    dispatch({ type: 'UPDATE_STEP2', payload: { axes: axes.map(a => a.id === axisId ? { ...a, name } : a) } });
-  };
-
-  // Calculate weighted scores
-  const scoredSegments = useMemo(() => {
-    return allSegments.map(seg => {
+  // スコア計算
+  const scoredCandidates = useMemo(() => {
+    return candidates.map(c => {
       let totalWeighted = 0;
-      const axisScores = {};
       for (const axis of axes) {
-        const raw = scores[`${seg.id}_${axis.id}`] || 0;
+        const raw = scores[`${c.id}_${axis.id}`] || 0;
         const mult = WEIGHT_OPTIONS.find(w => w.value === axis.weight)?.multiplier || 1;
-        axisScores[axis.id] = { raw, weighted: raw * mult };
         totalWeighted += raw * mult;
       }
-      return { ...seg, axisScores, totalWeighted, target: targets[seg.id] };
+      return { ...c, totalWeighted, target: targets[c.id] };
     }).sort((a, b) => b.totalWeighted - a.totalWeighted);
-  }, [allSegments, axes, scores, targets]);
+  }, [candidates, axes, scores, targets]);
 
-  // Progress checks
-  const hasAnyScore = Object.keys(scores).some(k => scores[k] > 0);
-  const hasAnyTarget = Object.values(targets).some(t => t?.label === 'main' || t?.label === 'sub');
-  const mainTargets = scoredSegments.filter(s => s.target?.label === 'main' || s.target?.label === 'sub');
-
-  // Chart data
-  const barData = scoredSegments.map(s => ({
-    name: s.name, score: s.totalWeighted, target: s.target?.label || 'none'
-  }));
-
-  // 凡例用: スコア順の番号付きデータ（元の順序を保持）
-  const bubbleLegend = useMemo(() => {
-    return scoredSegments.map((s, i) => ({
-      name: s.name,
-      displayNum: i + 1,
-      target: s.target?.label || 'none',
-    }));
-  }, [scoredSegments]);
-
-  const bubbleData = useMemo(() => {
-    // スコア順で番号を振る
-    const raw = scoredSegments.map((s, i) => ({
-      name: s.name,
-      displayNum: i + 1,
-      x: s.axisScores['ta1']?.raw || 0,
-      y: s.axisScores['ta4']?.raw || 0,
-      z: (s.axisScores['ta2']?.raw || 1) * 100,
-      target: s.target?.label || 'none',
-    }));
-    // 重要度順にソート: none(グレー)→sub(オレンジ)→main(赤)
-    // SVGは後に描画される要素が上になるので、重要度が高いものを後に配置
-    const priority = { none: 0, sub: 1, main: 2 };
-    const sorted = [...raw].sort((a, b) => (priority[a.target] || 0) - (priority[b.target] || 0));
-    return jitterOverlaps(sorted);
-  }, [scoredSegments]);
-
-  const getBarColor = (target) => {
-    if (target === 'main') return '#ef4444';
-    if (target === 'sub') return '#f59e0b';
-    return '#94a3b8';
+  // ============= Phase 3: ターゲット選定 =============
+  const setTarget = (candidateId, label) => {
+    dispatch({ type: 'UPDATE_STEP2', payload: { targets: { ...targets, [candidateId]: { ...targets[candidateId], label } } } });
   };
 
-  const top5 = project.step0.top5 || [];
-  const showTop5Panel = top5.length > 0 && !project.step0.skipped;
+  const setTargetReason = (candidateId, reason) => {
+    dispatch({ type: 'UPDATE_STEP2', payload: { targets: { ...targets, [candidateId]: { ...targets[candidateId], reason } } } });
+  };
+
+  const mainTargets = scoredCandidates.filter(c => c.target?.label === 'main' || c.target?.label === 'sub');
+  const hasAnyCandidates = candidates.length > 0;
+  const hasAnyScores = Object.keys(scores).some(k => scores[k] > 0);
+
+  // チャートデータ
+  const barData = scoredCandidates.map(c => ({
+    name: c.name || '(名称未設定)',
+    score: c.totalWeighted,
+    target: c.target?.label || 'none',
+  }));
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex gap-4">
-        {/* Main content */}
-        <div className={`flex-1 ${showTop5Panel ? 'max-w-[calc(100%-280px)]' : ''}`}>
-
-          {/* Page title */}
-          <div className="card mb-4">
-            <h2 className="section-title mb-1">Step 2: ターゲティング</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Step 1で定義したセグメントを評価し、注力すべきターゲットを選定します。
-            </p>
-
-            {/* Progress steps */}
-            <div className="flex items-center gap-2">
-              <StepBadge num="1" label="スコアリング" done={hasAnyScore} active={!hasAnyScore} />
-              <span className="text-gray-300">→</span>
-              <StepBadge num="2" label="ターゲット選定" done={hasAnyTarget} active={hasAnyScore && !hasAnyTarget} />
-              <span className="text-gray-300">→</span>
-              <StepBadge num="3" label="詳細記入" done={mainTargets.some(s => targets[s.id]?.persona || targets[s.id]?.reason)} active={hasAnyTarget} />
+    <div className="max-w-6xl mx-auto">
+      {/* ステップヘッダー */}
+      <div className="card mb-4">
+        <h2 className="section-title mb-1">
+          Step 2: ターゲティング
+          <HelpTip text="Step1で定義したセグメントを掛け合わせてターゲット候補を作り、6R評価で最適なターゲットを選定します。" />
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          セグメントを掛け合わせて「どんな顧客に注力するか」を決めます。
+        </p>
+        {/* 3フェーズ表示 */}
+        <div className="flex items-center gap-2">
+          {[
+            { num: 1, label: 'ターゲット候補作成', done: hasAnyCandidates },
+            { num: 2, label: '6R評価', done: hasAnyScores },
+            { num: 3, label: 'メイン/サブ選定', done: mainTargets.length > 0 },
+          ].map((s, i) => (
+            <div key={s.num} className="flex items-center gap-2">
+              <button
+                onClick={() => { if (s.num <= phase || s.done) setPhase(s.num); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer
+                  ${phase === s.num ? 'bg-primary text-white' : s.done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black
+                  ${phase === s.num ? 'bg-white text-primary' : s.done ? 'bg-green-500 text-white' : 'bg-gray-300 text-white'}`}>
+                  {s.done && phase !== s.num ? '✓' : s.num}
+                </span>
+                {s.label}
+              </button>
+              {i < 2 && <span className="text-gray-300">→</span>}
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 強み参照パネル */}
+      <StrengthsReferencePanel top5={project.step0.top5} companyName={project.settings.companyName} />
+
+      {/* ============= Phase 1: ターゲット候補作成 ============= */}
+      {phase === 1 && (
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-800">
+                ❶ ターゲット候補を作成
+                <HelpTip text="Step1のセグメントを掛け合わせて、具体的な顧客像（ターゲット候補）を3〜5個作ります。" detail="例：「航空宇宙業界」×「試作(1〜10個)」×「高精度重視」= 航空宇宙向け高精度試作ニーズ層" />
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">Step1のセグメントをクリックして掛け合わせ、3〜5個の候補を作りましょう。</p>
+            </div>
+            <button onClick={addCandidate} className="btn-primary btn-sm">+ 候補を追加</button>
           </div>
 
-          {/* ========== STEP ❶ SCORING ========== */}
-          <div className="card mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center text-sm font-black shrink-0">1</span>
-                <div>
-                  <h3 className="text-base font-bold text-gray-800">スコアリング</h3>
-                  <p className="text-xs text-gray-500">各セグメントを6つの評価軸で1〜5点で採点してください</p>
-                </div>
-              </div>
-              <button onClick={addAxis} className="btn-secondary btn-sm">＋ 評価軸を追加</button>
+          {candidates.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-3">🎯</div>
+              <p className="text-sm text-gray-400 mb-3">ターゲット候補がまだありません</p>
+              <button onClick={addCandidate} className="btn-primary">最初の候補を追加</button>
             </div>
+          ) : (
+            <div className="space-y-4">
+              {candidates.map((candidate, cIdx) => (
+                <div key={candidate.id} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center text-sm font-black shrink-0">
+                      {cIdx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      className="input-field text-sm font-bold flex-1"
+                      value={candidate.name}
+                      onChange={(e) => updateCandidate(candidate.id, 'name', e.target.value)}
+                      placeholder="ターゲット候補の名前（自動生成 or 直接入力）"
+                    />
+                    <button onClick={() => removeCandidate(candidate.id)} className="text-gray-300 hover:text-red-500 cursor-pointer">×</button>
+                  </div>
 
-            {/* Weight guide */}
-            <div className="mb-3 p-2.5 bg-blue-50 rounded-lg flex items-center gap-4 text-xs text-blue-800">
-              <span className="font-bold shrink-0">💡 重みの意味：</span>
-              <span><span className="inline-block px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">高</span> スコア×3倍</span>
-              <span><span className="inline-block px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-bold">中</span> スコア×2倍</span>
-              <span><span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">低</span> スコア×1倍</span>
-              <span className="text-blue-500">← 各列のヘッダーで設定できます</span>
-            </div>
-
-            {allSegments.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                セグメントが定義されていません。Step 1でセグメントを定義してください。
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-gray-300">
-                      <th className="text-left py-2 px-2 sticky left-0 bg-white z-10 min-w-[120px]">セグメント</th>
-                      {axes.map(axis => (
-                        <th key={axis.id} className="text-center py-1 px-2 min-w-[80px]">
-                          <div className="space-y-1">
-                            {axis.isCustom ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="text"
-                                  className="input-field text-xs py-0.5 text-center"
-                                  value={axis.name}
-                                  onChange={(e) => updateAxisName(axis.id, e.target.value)}
-                                  placeholder="軸名"
-                                />
-                                <button onClick={() => removeAxis(axis.id)} className="text-gray-400 hover:text-danger text-xs cursor-pointer">✕</button>
-                              </div>
-                            ) : (
-                              <span className="text-xs font-bold">{axis.name}</span>
-                            )}
-                            <div className="flex gap-0.5 justify-center">
-                              {WEIGHT_OPTIONS.map(w => (
+                  {/* セグメント選択 */}
+                  <div className="space-y-2">
+                    {selectedAxes.map(axis => {
+                      const { segments } = segmentsByAxis[axis.id] || { segments: [] };
+                      if (segments.length === 0) return null;
+                      const selected = (candidate.segments || []).find(s => s.axisId === axis.id);
+                      return (
+                        <div key={axis.id} className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gray-400 w-20 shrink-0 text-right">{axis.name}</span>
+                          <div className="flex flex-wrap gap-1">
+                            {segments.map(seg => {
+                              const isSelected = selected?.segName === seg.name;
+                              return (
                                 <button
-                                  key={w.value}
-                                  onClick={() => setWeight(axis.id, w.value)}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all
-                                    ${axis.weight === w.value ? w.color + ' ring-1 ring-current' : 'bg-gray-50 text-gray-300'}`}
+                                  key={seg.id}
+                                  onClick={() => toggleSegmentForCandidate(candidate.id, axis.id, axis.name, seg.name)}
+                                  className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-all border
+                                    ${isSelected
+                                      ? 'bg-primary text-white border-primary shadow-sm'
+                                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-primary/50 hover:bg-blue-50'}`}
                                 >
-                                  {w.label}
+                                  {isSelected && '✓ '}{seg.name}
                                 </button>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
-                        </th>
-                      ))}
-                      <th className="text-center py-2 px-2 min-w-[70px] bg-gray-50">加重合計</th>
-                      <th className="text-center py-2 px-2 min-w-[80px]">
-                        <span className="text-xs font-bold">区分</span>
-                        <div className="text-[9px] text-gray-400 font-normal">②で設定</div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scoredSegments.map((seg, idx) => (
-                      <tr key={seg.id} className={`border-b border-gray-100 ${seg.target?.label === 'main' ? 'bg-red-50' : seg.target?.label === 'sub' ? 'bg-amber-50' : ''}`}>
-                        <td className="py-1.5 px-2 sticky left-0 bg-inherit z-10">
-                          <div className="font-medium text-xs">{seg.name}</div>
-                          <div className="text-[10px] text-gray-400">{seg.axisName}</div>
-                        </td>
-                        {axes.map(axis => (
-                          <td key={axis.id} className="text-center py-1.5 px-1">
-                            <select
-                              value={scores[`${seg.id}_${axis.id}`] || 0}
-                              onChange={(e) => setScore(seg.id, axis.id, Number(e.target.value))}
-                              className="w-14 px-1 py-0.5 border border-gray-200 rounded text-xs text-center cursor-pointer"
-                            >
-                              <option value={0}>-</option>
-                              {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
-                            </select>
-                          </td>
-                        ))}
-                        <td className="text-center py-1.5 px-2 bg-gray-50 font-bold text-sm">{seg.totalWeighted}</td>
-                        <td className="text-center py-1.5 px-2">
-                          <div className="flex gap-0.5 justify-center">
-                            {TARGET_LABELS.map(t => (
-                              <button
-                                key={t.value}
-                                onClick={() => setTarget(seg.id, t.value)}
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all
-                                  ${seg.target?.label === t.value ? t.color : 'bg-gray-100 text-gray-400'}`}
-                              >
-                                {t.label}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* ========== STEP ❷ TARGET SELECTION (shows after scoring) ========== */}
-          {hasAnyScore && (
-            <div className={`card mb-4 ${!hasAnyTarget ? 'ring-2 ring-primary/30 ring-offset-2' : ''}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-black shrink-0
-                  ${hasAnyTarget ? 'bg-green-500 text-white' : 'bg-primary text-white'}`}>
-                  {hasAnyTarget ? '✓' : '2'}
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-gray-800">ターゲット選定</h3>
-                  <p className="text-xs text-gray-500">
-                    スコアとチャートを参考に、表の右端「区分」列で
-                    <span className="inline-block mx-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold">メイン</span>
-                    <span className="inline-block mx-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-bold">サブ</span>
-                    を設定してください
-                  </p>
-                </div>
-              </div>
-
-              {/* Charts */}
-              {allSegments.length > 0 && (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div className="border border-gray-200 rounded-lg p-3">
-                    <h4 className="text-sm font-bold text-gray-700 mb-2">総合スコア棒グラフ</h4>
-                    <ResponsiveContainer width="100%" height={Math.max(250, allSegments.length * 32)}>
-                      <BarChart data={barData} layout="vertical" margin={{ left: 100, right: 20, top: 5, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90} />
-                        <Tooltip />
-                        <Bar dataKey="score" name="加重合計スコア" radius={[0, 4, 4, 0]}>
-                          {barData.map((entry, idx) => (
-                            <Cell key={idx} fill={getBarColor(entry.target)} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div className="flex items-center justify-center gap-4 mt-2 text-[10px]">
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500 inline-block"></span> メイン</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500 inline-block"></span> サブ</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-400 inline-block"></span> 未選択/対象外</span>
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="border border-gray-200 rounded-lg p-3">
-                    <h4 className="text-sm font-bold text-gray-700 mb-2">バブルチャート（市場規模 × 自社適合性 × 成長性）</h4>
-                    <div className="text-[10px] text-gray-500 mb-1 grid grid-cols-2 gap-1">
-                      <div className="p-1 bg-green-50 rounded">右上：最優先ターゲット</div>
-                      <div className="p-1 bg-yellow-50 rounded">右下：差別化戦略が必要</div>
-                      <div className="p-1 bg-blue-50 rounded">左上：ニッチ戦略に有効</div>
-                      <div className="p-1 bg-gray-50 rounded">左下：優先度を下げる候補</div>
-                    </div>
-                    <ResponsiveContainer width="100%" height={340}>
-                      <ScatterChart margin={{ top: 30, right: 20, bottom: 30, left: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="x" name="市場規模" domain={[0, 5.5]} ticks={[0, 1, 2, 3, 4, 5]} label={{ value: '市場規模', position: 'bottom', offset: 15, fontSize: 11 }} />
-                        <YAxis type="number" dataKey="y" name="自社適合性" domain={[0, 5.5]} ticks={[0, 1, 2, 3, 4, 5]} label={{ value: '自社適合性', angle: -90, position: 'left', offset: 15, fontSize: 11 }} />
-                        <ZAxis type="number" dataKey="z" range={[100, 800]} />
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ payload }) => {
-                          if (!payload?.[0]) return null;
-                          const d = payload[0].payload;
-                          return (
-                            <div className="bg-white shadow-lg rounded p-2 text-xs border">
-                              <div className="font-bold">{d.name}</div>
-                              <div>市場規模: {d.x} / 自社適合性: {d.y}</div>
-                              <div>成長性: {d.z / 100}</div>
-                            </div>
-                          );
-                        }} />
-                        <Scatter data={bubbleData} fill="#3b82f6">
-                          {bubbleData.map((entry, idx) => (
-                            <Cell key={idx} fill={getBarColor(entry.target)} fillOpacity={0.85} stroke={getBarColor(entry.target)} strokeWidth={1.5} />
-                          ))}
-                          <LabelList dataKey="displayNum" content={renderBubbleNumberLabel} />
-                        </Scatter>
-                      </ScatterChart>
-                    </ResponsiveContainer>
-                    {/* 番号→名前の凡例テーブル（スコア順） */}
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
-                      {bubbleLegend.map((d) => (
-                        <span key={d.displayNum} className="flex items-center gap-1">
-                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-                                style={{ backgroundColor: getBarColor(d.target) }}>
-                            {d.displayNum}
-                          </span>
-                          <span className="text-gray-700">{d.name}</span>
-                        </span>
-                      ))}
-                    </div>
+                  {/* 候補の補足メモ */}
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      className="input-field text-xs py-1"
+                      value={candidate.memo || ''}
+                      onChange={(e) => updateCandidate(candidate.id, 'memo', e.target.value)}
+                      placeholder="この候補の特徴・補足（任意）"
+                    />
                   </div>
                 </div>
-              )}
-
-              {!hasAnyTarget && allSegments.length > 0 && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
-                  <span className="text-lg">👆</span>
-                  上の表に戻り、右端の「区分」列で <strong>メイン</strong> または <strong>サブ</strong> をクリックしてターゲットを選んでください。
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========== STEP ❸ TARGET DETAIL (shows after target selection) ========== */}
-          {hasAnyTarget && (
-            <div className={`card mb-4 ${!mainTargets.some(s => targets[s.id]?.reason) ? 'ring-2 ring-primary/30 ring-offset-2' : ''}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-black shrink-0
-                  ${mainTargets.some(s => targets[s.id]?.reason) ? 'bg-green-500 text-white' : 'bg-primary text-white'}`}>
-                  {mainTargets.some(s => targets[s.id]?.reason) ? '✓' : '3'}
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-gray-800">ターゲット詳細を記入</h3>
-                  <p className="text-xs text-gray-500">選定したターゲットに「顧客像名」と「選定理由」を入力してください（エクスポートやAIコメントに反映されます）</p>
-                </div>
-              </div>
-
-              {mainTargets.map(seg => (
-                <PersonaCard
-                  key={seg.id}
-                  seg={seg}
-                  targets={targets}
-                  setTargetField={setTargetField}
-                  allSegments={allSegments}
-                  selectedAxes={project.step1.selectedAxes}
-                  segmentsByAxis={project.step1.segments}
-                />
               ))}
             </div>
           )}
 
-          <AICommentBox
-            commentKey="targetingRationale"
-            inputData={{ segments: scoredSegments, top5: project.step0.top5, axes }}
-            label="💡 ターゲティング選定根拠（AIコメント）"
-          />
-
-          <div className="mt-6 flex justify-between items-center">
-            <button onClick={onBack} className="btn-secondary">← 前のステップ</button>
-            <div className="flex items-center gap-3">
-              <button onClick={onSkipStep3} className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2 cursor-pointer">
-                Step 3をスキップして出力へ →
-              </button>
-              <button onClick={onNext} className="btn-primary">次へ：ポジショニング（Step 3）→</button>
-            </div>
-          </div>
-          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-700">
-              💡 <strong>下請け企業などで明確な競合が設定しにくい場合</strong>は、Step 3（ポジショニング）をスキップして出力に進めます。後からいつでもStep 3に戻って入力できます。
-            </p>
+          <div className="mt-6 flex justify-between">
+            <button onClick={onBack} className="btn-secondary">← Step 1へ</button>
+            <button
+              onClick={() => setPhase(2)}
+              disabled={candidates.length === 0}
+              className="btn-primary"
+            >
+              6R評価へ進む →
+            </button>
           </div>
         </div>
+      )}
 
-        {/* Top5 side panel */}
-        {showTop5Panel && (
-          <div className="w-[260px] shrink-0">
-            <div className="card sticky top-4">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">💪 Top5 強み（参照）</h3>
-              <div className="space-y-2">
-                {top5.map((item, idx) => (
-                  <div key={item.id} className="p-2 bg-blue-50 rounded text-xs">
-                    <div className="font-bold text-primary">#{idx + 1} {item.name}</div>
-                    <div className="text-gray-600 mt-0.5">{item.strength?.slice(0, 60)}{item.strength?.length > 60 ? '...' : ''}</div>
-                  </div>
-                ))}
-              </div>
+      {/* ============= Phase 2: 6R評価スコアリング ============= */}
+      {phase === 2 && (
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-800">
+                ❷ 6R評価でスコアリング
+                <HelpTip text="6R（市場規模・成長性・競合・自社適合性・到達可能性・収益性）でターゲット候補を比較評価します。" />
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">各ターゲット候補を6つの評価軸で1〜5点で採点してください。</p>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* 重みの説明 */}
+          <div className="flex items-center gap-3 mb-3 text-xs text-gray-400">
+            <span>重み：</span>
+            {WEIGHT_OPTIONS.map(w => (
+              <span key={w.value} className={`step-badge ${w.color}`}>{w.label} = ×{w.multiplier}</span>
+            ))}
+            <span className="ml-2">← 各列のヘッダーで設定可</span>
+          </div>
+
+          {/* スコアリングテーブル */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left p-2 border-b-2 border-gray-200 w-48">ターゲット候補</th>
+                  {axes.map(axis => (
+                    <th key={axis.id} className="p-2 border-b-2 border-gray-200 text-center min-w-[90px]">
+                      <div className="text-xs font-bold text-gray-700">{axis.name}</div>
+                      {axis.sixR && <div className="text-[9px] text-gray-400">{axis.sixR}</div>}
+                      <div className="flex justify-center gap-0.5 mt-1">
+                        {WEIGHT_OPTIONS.map(w => (
+                          <button
+                            key={w.value}
+                            onClick={() => setWeight(axis.id, w.value)}
+                            className={`text-[9px] px-1 py-0.5 rounded cursor-pointer transition-colors
+                              ${axis.weight === w.value ? w.color : 'bg-gray-50 text-gray-300'}`}
+                          >
+                            {w.label}
+                          </button>
+                        ))}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-2 border-b-2 border-gray-300 text-center font-bold text-gray-800">加重計</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scoredCandidates.map((c, idx) => (
+                  <tr key={c.id} className={idx % 2 === 0 ? 'bg-gray-50/50' : ''}>
+                    <td className="p-2 border-b border-gray-100">
+                      <div className="font-semibold text-gray-700 text-xs">{c.name || `候補${idx + 1}`}</div>
+                      {c.segments?.length > 0 && (
+                        <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          {c.segments.map((s, i) => (
+                            <span key={i} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded">{s.segName}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    {axes.map(axis => (
+                      <td key={axis.id} className="p-1 border-b border-gray-100 text-center">
+                        <select
+                          value={scores[`${c.id}_${axis.id}`] || 0}
+                          onChange={(e) => setScore(c.id, axis.id, parseInt(e.target.value))}
+                          className="w-14 text-center text-sm border border-gray-200 rounded py-1 cursor-pointer"
+                        >
+                          <option value={0}>-</option>
+                          {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </td>
+                    ))}
+                    <td className="p-2 border-b border-gray-100 text-center font-bold text-gray-800 text-base">
+                      {c.totalWeighted}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 棒グラフ */}
+          {hasAnyScores && (
+            <div className="mt-6">
+              <h4 className="text-sm font-bold text-gray-600 mb-2">総合スコア比較</h4>
+              <ResponsiveContainer width="100%" height={Math.max(200, scoredCandidates.length * 40)}>
+                <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                    {barData.map((entry, i) => (
+                      <Cell key={i} fill={entry.target === 'main' ? '#ef4444' : entry.target === 'sub' ? '#f59e0b' : '#93c5fd'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-between">
+            <button onClick={() => setPhase(1)} className="btn-secondary">← 候補作成に戻る</button>
+            <button onClick={() => setPhase(3)} disabled={!hasAnyScores} className="btn-primary">
+              ターゲット選定へ →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============= Phase 3: メイン/サブ選定 ============= */}
+      {phase === 3 && (
+        <div className="card mb-4">
+          <h3 className="text-base font-bold text-gray-800 mb-1">
+            ❸ メインターゲット・サブターゲットを選定
+            <HelpTip text="スコアと自社の戦略を踏まえ、最も注力するメインターゲットと補助的なサブターゲットを決めます。" detail="メインは1つに絞ることを推奨します。" />
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">スコアを参考に、メインターゲット（最重要）とサブターゲットを決めてください。</p>
+
+          <div className="space-y-3">
+            {scoredCandidates.map((c, idx) => {
+              const target = targets[c.id] || {};
+              return (
+                <div key={c.id} className={`border-2 rounded-xl p-4 transition-colors
+                  ${target.label === 'main' ? 'border-red-300 bg-red-50/50' : target.label === 'sub' ? 'border-amber-300 bg-amber-50/50' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-black text-gray-300">#{idx + 1}</span>
+                      <div>
+                        <span className="font-bold text-gray-800">{c.name || `候補${idx + 1}`}</span>
+                        <span className="text-xs text-gray-400 ml-2">加重スコア: {c.totalWeighted}点</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {TARGET_LABELS.map(tl => (
+                        <button
+                          key={tl.value}
+                          onClick={() => setTarget(c.id, tl.value)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all
+                            ${target.label === tl.value ? tl.color : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                        >
+                          {tl.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {c.segments?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {c.segments.map((s, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 bg-white rounded-full border border-gray-200 text-gray-500">
+                          {s.axisName}: {s.segName}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {(target.label === 'main' || target.label === 'sub') && (
+                    <textarea
+                      className="textarea-field text-sm mt-2"
+                      rows={2}
+                      value={target.reason || ''}
+                      onChange={(e) => setTargetReason(c.id, e.target.value)}
+                      placeholder="このターゲットを選んだ理由を記入..."
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* AIコメント */}
+          <div className="mt-6">
+            <AICommentBox
+              commentKey="targetingRationale"
+              inputData={{
+                settings: project.settings,
+                top5: project.step0.top5,
+                candidates: scoredCandidates,
+                targets,
+              }}
+              label="💡 ターゲティング戦略コメント（AI生成）"
+            />
+          </div>
+
+          <div className="mt-6 flex justify-between">
+            <button onClick={() => setPhase(2)} className="btn-secondary">← スコアリングに戻る</button>
+            <div className="flex gap-3">
+              <button
+                onClick={onSkipStep3}
+                className="btn-secondary"
+              >
+                ポジショニングをスキップ →
+              </button>
+              <button
+                onClick={onNext}
+                disabled={mainTargets.length === 0}
+                className="btn-primary"
+              >
+                次へ：ポジショニング →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
