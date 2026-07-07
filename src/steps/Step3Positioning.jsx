@@ -75,10 +75,19 @@ export default function Step3Positioning({ onNext, onBack, onSkipToExport, onUns
     return segs;
   }, [project.step1]);
 
-  // Initialize axes if empty
+  // 軸が未設定なら初期軸を投入（レンダー中のdispatchは白画面の原因になるためuseEffectで行う）
+  useEffect(() => {
+    if (step3.axes.length === 0) {
+      dispatch({ type: 'UPDATE_STEP3', payload: { axes: defaultAxes.map((name, idx) => ({ id: `pa_${idx}`, name })) } });
+    }
+  }, [step3.axes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (step3.axes.length === 0) {
-    dispatch({ type: 'UPDATE_STEP3', payload: { axes: defaultAxes.map((name, idx) => ({ id: `pa_${idx}`, name })) } });
-    return null;
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="card text-center py-10 text-sm text-gray-400">評価軸を準備しています...</div>
+      </div>
+    );
   }
 
   const companyName = project.settings.companyName || '自社';

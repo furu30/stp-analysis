@@ -66,7 +66,11 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
     return result;
   }, [project.step1]);
 
-  const selectedAxes = project.step1.selectedAxes || [];
+  // Step1で設定した優先度の高い切り口から順に表示し、候補作成の指針にする
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+  const selectedAxes = [...(project.step1.selectedAxes || [])].sort(
+    (a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
+  );
   const candidates = step2.candidates || [];
   const axes = step2.axes;
   const scores = step2.scores || {};
@@ -240,7 +244,10 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
                       const selected = (candidate.segments || []).find(s => s.axisId === axis.id);
                       return (
                         <div key={axis.id} className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-gray-400 w-20 shrink-0 text-right">{axis.name}</span>
+                          <span className="text-[10px] font-bold text-gray-400 w-24 shrink-0 text-right">
+                            {axis.priority === 'high' && <span className="text-red-500" title="Step1で優先度:高に設定した切り口">▲ </span>}
+                            {axis.name}
+                          </span>
                           <div className="flex flex-wrap gap-1">
                             {segments.map(seg => {
                               const isSelected = selected?.segName === seg.name;
@@ -278,15 +285,20 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
             </div>
           )}
 
-          <div className="mt-6 flex justify-between">
+          <div className="mt-6 flex justify-between items-center">
             <button onClick={onBack} className="btn-secondary">← Step 1へ</button>
-            <button
-              onClick={() => setPhase(2)}
-              disabled={candidates.length === 0}
-              className="btn-primary"
-            >
-              6R評価へ進む →
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={() => setPhase(2)}
+                disabled={candidates.length === 0}
+                className="btn-primary"
+              >
+                6R評価へ進む →
+              </button>
+              {candidates.length === 0 && (
+                <p className="text-xs text-amber-600">候補を1つ以上作成すると進めます</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -394,11 +406,16 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
             </div>
           )}
 
-          <div className="mt-6 flex justify-between">
+          <div className="mt-6 flex justify-between items-center">
             <button onClick={() => setPhase(1)} className="btn-secondary">← 候補作成に戻る</button>
-            <button onClick={() => setPhase(3)} disabled={!hasAnyScores} className="btn-primary">
-              ターゲット選定へ →
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button onClick={() => setPhase(3)} disabled={!hasAnyScores} className="btn-primary">
+                ターゲット選定へ →
+              </button>
+              {!hasAnyScores && (
+                <p className="text-xs text-amber-600">スコアを1つ以上入力すると進めます</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -487,13 +504,18 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
               >
                 ポジショニングをスキップ →
               </button>
-              <button
-                onClick={onNext}
-                disabled={mainTargets.length === 0}
-                className="btn-primary"
-              >
-                次へ：ポジショニング →
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={onNext}
+                  disabled={mainTargets.length === 0}
+                  className="btn-primary"
+                >
+                  次へ：ポジショニング →
+                </button>
+                {mainTargets.length === 0 && (
+                  <p className="text-xs text-amber-600">メインかサブを1つ以上選定すると進めます</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

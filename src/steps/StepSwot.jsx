@@ -62,6 +62,17 @@ export default function StepSwot({ onNext, onBack }) {
 
   const effectiveStrengths = swot.strengths.length > 0 ? swot.strengths : top5Names;
 
+  // Step3の競合比較で自社が全競合を上回った軸を「強み候補」としてサジェスト
+  const advantageAxes = useMemo(() => {
+    const step3 = project.step3;
+    if (!step3 || step3.skipped || (step3.competitors || []).length === 0) return [];
+    return (step3.axes || []).filter(axis => {
+      const selfScore = step3.scores?.[`self_${axis.id}`] || 0;
+      if (selfScore === 0) return false;
+      return step3.competitors.every(c => selfScore > (step3.scores?.[`${c.id}_${axis.id}`] || 0));
+    }).map(a => `${a.name}で競合を上回る`);
+  }, [project.step3]);
+
   // 各象限のデータ（最低MIN_ROWS行を保証）
   const getItems = useCallback((key) => {
     if (key === 'strengths') {
@@ -321,6 +332,26 @@ export default function StepSwot({ onNext, onBack }) {
         {!hasApiKey && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-700">💡 ヘッダーの「AI設定」からAPIキーを設定すると、弱み・機会・脅威をAIで一括生成できます。</p>
+          </div>
+        )}
+
+        {/* Step3の競合比較からの強みサジェスト */}
+        {advantageAxes.length > 0 && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs font-bold text-blue-700 mb-1.5">
+              📍 Step3の競合比較で、全競合を上回った軸があります（クリックで強みに追加）
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {advantageAxes.map((name, i) => (
+                <button
+                  key={i}
+                  onClick={() => insertExample('strengths', name)}
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-white text-blue-600 border border-blue-300 hover:bg-blue-100 cursor-pointer transition-colors"
+                >
+                  + {name}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
