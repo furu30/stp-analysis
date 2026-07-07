@@ -3,6 +3,9 @@ import { useProject } from '../context/ProjectContext';
 import AIResearchModal from '../components/AIResearchModal';
 import HelpTip from '../components/HelpTip';
 import { INDUSTRY_TEMPLATES, createFromTemplate } from '../data/industryTemplates';
+import { DEMO_LIST, createDemoProject, createDemoProjectFuji, createDemoProjectBakery } from '../data/demoData';
+
+const DEMO_FACTORIES = { createDemoProject, createDemoProjectFuji, createDemoProjectBakery };
 
 export default function ProjectSettings({ onNext, onNavigate }) {
   const { project, dispatch } = useProject();
@@ -13,6 +16,13 @@ export default function ProjectSettings({ onNext, onNavigate }) {
   const [touched, setTouched] = useState({});
 
   const hasApiKey = !!project.aiSettings.apiKey;
+  // まだ何も入力していない状態（＝初回ユーザーの可能性が高い）でのみデモCTAを表示
+  const isFresh = !s.projectName && !s.companyName;
+
+  const loadDemo = (factoryName) => {
+    const factory = DEMO_FACTORIES[factoryName];
+    if (factory) dispatch({ type: 'SET_PROJECT', payload: factory() });
+  };
 
   const errors = {};
   if (touched.projectName && !s.projectName) errors.projectName = 'プロジェクト名は必須です';
@@ -20,6 +30,33 @@ export default function ProjectSettings({ onNext, onNavigate }) {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* 初回ユーザー向け: 記入例（デモ）への明示的な導線 */}
+      {isFresh && (
+        <div className="card mb-4 border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">👀</span>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-gray-800 mb-1">はじめての方へ：まず記入例を見るのがおすすめです</h3>
+              <p className="text-xs text-gray-600 mb-3">
+                3社の記入済みサンプルを読み込んで、各ステップで「何をどの粒度で書けばよいか」を確認できます。
+                内容はいつでも「🔄 リセット」で消せます。
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_LIST.map(demo => (
+                  <button
+                    key={demo.id}
+                    onClick={() => loadDemo(demo.factory)}
+                    className="btn-secondary btn-sm bg-white"
+                  >
+                    📋 {demo.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <h2 className="section-title">プロジェクト設定</h2>
         <p className="text-sm text-gray-500 mb-6">
@@ -178,7 +215,7 @@ export default function ProjectSettings({ onNext, onNavigate }) {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end">
+        <div className="mt-8 flex flex-col items-end gap-1">
           <button
             onClick={onNext}
             disabled={!s.projectName}
@@ -186,6 +223,9 @@ export default function ProjectSettings({ onNext, onNavigate }) {
           >
             次へ：強み棚卸（Step 0）→
           </button>
+          {!s.projectName && (
+            <p className="text-xs text-amber-600">プロジェクト名を入力すると次へ進めます</p>
+          )}
         </div>
       </div>
 

@@ -69,10 +69,68 @@ function calcProgress(project) {
   return p;
 }
 
+/** 各ステップの「次にやること」を返す（完了なら空文字） */
+function nextActions(project) {
+  const a = {};
+
+  const s = project.settings;
+  a.settings = !s.projectName ? 'プロジェクト名を入力しましょう'
+    : !s.companyName ? '自社名を入力するとマップやレポートに反映されます'
+    : '';
+
+  const flagged = project.step0.categories.flatMap(c => c.items.filter(i => i.isStrengthFlag)).length;
+  const top5 = (project.step0.top5 || []).length;
+  a.step0 = project.step0.skipped ? ''
+    : flagged < 5 ? `強みに★を付けましょう（あと${5 - flagged}個）`
+    : top5 < 5 ? '「強みを整理する」からTop5を確定しましょう'
+    : '';
+
+  const axes = project.step1.selectedAxes.length;
+  const segs = Object.values(project.step1.segments).flatMap(x => x).filter(x => x.name).length;
+  a.step1 = axes === 0 ? '市場を分ける切り口を2〜3個選びましょう'
+    : segs < 2 ? '選んだ切り口ごとにセグメント（区分）を定義しましょう'
+    : '';
+
+  const candidates = (project.step2.candidates || []).length;
+  const scoreCount = Object.keys(project.step2.scores || {}).length;
+  const targetCount = Object.values(project.step2.targets || {}).filter(t => t?.label === 'main' || t?.label === 'sub').length;
+  a.step2 = candidates === 0 ? 'セグメントを掛け合わせてターゲット候補を3〜5個作りましょう'
+    : scoreCount === 0 ? '各候補を6つの軸で採点しましょう'
+    : targetCount === 0 ? 'メイン／サブターゲットを選定しましょう'
+    : '';
+
+  if (project.step3.skipped) {
+    a.step3 = '';
+  } else {
+    const comps = project.step3.competitors.length;
+    const posScores = Object.keys(project.step3.scores).length;
+    a.step3 = comps === 0 ? '競合企業を1社以上登録しましょう（難しければスキップ可）'
+      : posScores === 0 ? '自社と競合のスコアを入力しましょう'
+      : '';
+  }
+
+  const swot = project.swot || {};
+  if (swot.skipped) {
+    a.swot = '';
+  } else {
+    const swotItems = [...(swot.weaknesses || []), ...(swot.opportunities || []), ...(swot.threats || [])].filter(Boolean).length;
+    const crossFilled = Object.values(swot.crossStrategies || {}).filter(Boolean).length;
+    a.swot = swotItems === 0 ? '弱み・機会・脅威を入力しましょう（AI生成も使えます）'
+      : crossFilled === 0 ? 'クロスSWOT戦略（4象限）を記入しましょう'
+      : '';
+  }
+
+  a.export = 'アクションプランをまとめてレポートを出力しましょう';
+  return a;
+}
+
 export default function StepNavigation({ currentStep, onStepChange }) {
   const { project } = useProject();
   const step3Skipped = project.step3?.skipped;
   const progress = calcProgress(project);
+  const actions = nextActions(project);
+  const currentAction = actions[currentStep] || '';
+  const currentPct = progress[currentStep] || 0;
 
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
@@ -89,6 +147,7 @@ export default function StepNavigation({ currentStep, onStepChange }) {
               <button
                 key={step.id}
                 onClick={() => onStepChange(step.id)}
+                title={actions[step.id] || `${step.label}: 完了`}
                 className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all cursor-pointer
                   ${isActive ? 'bg-primary text-white shadow-sm' : isPast && isDone ? 'text-green-700 bg-green-50' : isPast ? 'text-primary bg-primary-light/50' : 'text-gray-500 hover:bg-gray-100'}
                   ${isSkipped ? 'opacity-50' : ''}`}
@@ -114,6 +173,22 @@ export default function StepNavigation({ currentStep, onStepChange }) {
             );
           })}
         </div>
+        {/* 現在のステップの「次にやること」ガイド */}
+        {currentStep !== 'export' && (
+          <div className="pb-2 -mt-0.5 flex items-center gap-2 text-xs">
+            {currentAction ? (
+              <>
+                <span className="text-amber-600 font-semibold shrink-0">👉 次にやること:</span>
+                <span className="text-gray-600">{currentAction}</span>
+                {currentPct > 0 && currentPct < 100 && (
+                  <span className="text-gray-400">（進捗 {currentPct}%）</span>
+                )}
+              </>
+            ) : (
+              <span className="text-green-600 font-semibold">✅ このステップは完了しています。次のステップへ進みましょう</span>
+            )}
+          </div>
+        )}
       </div>
     </nav>
   );

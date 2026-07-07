@@ -179,6 +179,22 @@ export default function Step0Strengths({ onNext, onSkip }) {
           </div>
         </div>
 
+        {/* このステップのゴールを先に示す（全項目入力は不要と明示して入力負荷の不安を下げる） */}
+        <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <p className="text-sm text-emerald-900 font-semibold mb-1">
+            🎯 このステップのゴール：自信のある項目に「★」を5つ付けること
+          </p>
+          <p className="text-xs text-emerald-800">
+            バリューチェーンとは、仕事の流れを「調達→製造→出荷→販売→サービス」＋それを支える活動の8つに分けたものです。
+            <strong>全部の欄を埋める必要はありません。</strong>
+            タブを順に見ながら「これはウチの強みだ」と思う項目だけ記入し、★を付けてください。
+            ★が5つ集まったら右上の「強みを整理する」へ。
+          </p>
+          <p className="text-xs text-emerald-700 mt-2 font-semibold">
+            ★の数: {flaggedItems.length} / 5 {flaggedItems.length >= 5 ? '✅ →「強みを整理する」でTop5を確定しましょう' : ''}
+          </p>
+        </div>
+
         {/* Category tabs */}
         <div className="flex gap-1 mb-4 overflow-x-auto border-b border-gray-200 pb-2">
           {categories.map(cat => {
@@ -244,7 +260,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
                           maxLength={500}
                           value={item.strength}
                           onChange={(e) => updateItem(activeTab, item.id, 'strength', e.target.value)}
-                          placeholder="自社の強みを記入..."
+                          placeholder="例: 5軸加工で±0.005mmの精度を安定して出せる"
                         />
                       </td>
                       <td className="py-2 px-2">
@@ -254,7 +270,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
                           maxLength={500}
                           value={item.communication}
                           onChange={(e) => updateItem(activeTab, item.id, 'communication', e.target.value)}
-                          placeholder="顧客への伝達状況を記入..."
+                          placeholder="例: Webに加工事例を掲載済み／展示会で説明のみ"
                         />
                       </td>
                       <td className="py-2 px-2">
