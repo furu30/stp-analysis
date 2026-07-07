@@ -9,7 +9,7 @@ const DEMO_FACTORIES = {
 };
 
 // モニター向けフィードバックフォーム（GoogleフォームのURLをここに設定。空文字ならボタン非表示）
-const FEEDBACK_FORM_URL = '';
+const FEEDBACK_FORM_URL = 'https://forms.gle/HZg5KMz2MhtQR4ZB8';
 
 export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOpenProjectList }) {
   const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved, saveError } = useProject();
