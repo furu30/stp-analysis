@@ -39,22 +39,25 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOp
   return (
     <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold tracking-tight">STP分析支援アプリ</h1>
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
+          <h1 className="text-lg font-bold tracking-tight whitespace-nowrap">STP分析支援アプリ</h1>
           {project.settings.projectName && (
-            <span className="bg-white/20 px-3 py-0.5 rounded-full text-sm">
+            <span
+              className="bg-white/20 px-3 py-0.5 rounded-full text-sm max-w-[180px] truncate"
+              title={project.settings.projectName}
+            >
               {project.settings.projectName}
             </span>
           )}
           {saveError ? (
             <span
-              className="text-xs bg-red-500 text-white font-bold px-2 py-1 rounded flex items-center gap-1"
+              className="text-xs bg-red-500 text-white font-bold px-2 py-1 rounded flex items-center gap-1 whitespace-nowrap"
               title={saveError}
             >
               ⚠️ 自動保存失敗 — 「💾 保存」でファイル退避を
             </span>
           ) : lastSaved && (
-            <span className="text-xs text-blue-200 flex items-center gap-1">
+            <span className="text-xs text-blue-200 flex items-center gap-1 whitespace-nowrap">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
               自動保存済 {lastSaved}
             </span>

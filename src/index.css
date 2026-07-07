@@ -29,10 +29,14 @@
   }
 }
 
-/* タブレット以下でヘッダーボタンを折り返し */
+/* ヘッダーボタン: 幅が足りないときはボタン単位で折り返す（ボタン内の文字は改行させない） */
+.header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 0.25rem;
+}
 @media (max-width: 1023px) {
   .header-actions {
-    flex-wrap: wrap;
     gap: 0.25rem;
   }
   .header-actions .btn {
@@ -52,6 +56,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
 }
 
 @utility btn-primary {
