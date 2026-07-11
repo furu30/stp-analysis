@@ -3,6 +3,9 @@ import { useProject } from '../context/ProjectContext';
 import { VALUE_CHAIN_CATEGORIES } from '../data/defaultData';
 import AICommentBox from '../components/AICommentBox';
 
+const TOP_MIN = 5; // 強み選定の推奨数
+const TOP_MAX = 7; // 強み選定の最大数
+
 const STATUS_OPTIONS = [
   { value: 'communicated', label: '伝達できている', color: 'bg-green-100 text-green-700' },
   { value: 'issue', label: '課題あり', color: 'bg-yellow-100 text-yellow-700' },
@@ -58,7 +61,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
   const top5 = step0.top5 || [];
 
   const confirmTop5 = () => {
-    const selected = flaggedItems.slice(0, 5).map((item, idx) => ({
+    const selected = flaggedItems.slice(0, TOP_MAX).map((item, idx) => ({
       ...item,
       rank: idx + 1,
       reason: top5.find(t => t.id === item.id)?.reason || '',
@@ -97,7 +100,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
       <div className="max-w-4xl mx-auto">
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Top5 強み選定</h2>
+            <h2 className="section-title mb-0">強みTop選定（5〜7件）</h2>
             <button onClick={() => setShowTop5(false)} className="btn-secondary btn-sm">← バリューチェーン入力に戻る</button>
           </div>
 
@@ -109,10 +112,10 @@ export default function Step0Strengths({ onNext, onSkip }) {
           ) : (
             <>
               <p className="text-sm text-gray-500 mb-4">
-                フラグを付けた項目が {flaggedItems.length} 件あります。上位5件を「Top5強み」として確定してください。
+                フラグを付けた項目が {flaggedItems.length} 件あります。上位最大{TOP_MAX}件を「Top強み」として確定してください（5件でも十分です）。
               </p>
               <div className="space-y-3">
-                {(step0.top5.length > 0 ? step0.top5 : flaggedItems.slice(0, 5)).map((item, idx) => (
+                {(step0.top5.length > 0 ? step0.top5 : flaggedItems.slice(0, TOP_MAX)).map((item, idx) => (
                   <div key={item.id} className="border border-gray-200 rounded-lg p-4 flex gap-4 items-start">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-lg font-bold text-primary">#{idx + 1}</span>
@@ -141,7 +144,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
               </div>
               <div className="mt-4 flex gap-2">
                 <button onClick={confirmTop5} className="btn-primary">
-                  Top5を確定する
+                  Top強みを確定する（最大{TOP_MAX}件）
                 </button>
               </div>
             </>
@@ -182,16 +185,16 @@ export default function Step0Strengths({ onNext, onSkip }) {
         {/* このステップのゴールを先に示す（全項目入力は不要と明示して入力負荷の不安を下げる） */}
         <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
           <p className="text-sm text-emerald-900 font-semibold mb-1">
-            🎯 このステップのゴール：自信のある項目に「★」を5つ付けること
+            🎯 このステップのゴール：自信のある項目に「★」を5〜7つ付けること
           </p>
           <p className="text-xs text-emerald-800">
             バリューチェーンとは、仕事の流れを「調達→製造→出荷→販売→サービス」＋それを支える活動の8つに分けたものです。
             <strong>全部の欄を埋める必要はありません。</strong>
             タブを順に見ながら「これはウチの強みだ」と思う項目だけ記入し、★を付けてください。
-            ★が5つ集まったら右上の「強みを整理する」へ。
+            ★が5つ以上（最大7つ）集まったら右上の「強みを整理する」へ。
           </p>
           <p className="text-xs text-emerald-700 mt-2 font-semibold">
-            ★の数: {flaggedItems.length} / 5 {flaggedItems.length >= 5 ? '✅ →「強みを整理する」でTop5を確定しましょう' : ''}
+            ★の数: {flaggedItems.length} / 5〜{TOP_MAX} {flaggedItems.length >= TOP_MIN ? '✅ →「強みを整理する」でTop強みを確定しましょう' : ''}
           </p>
         </div>
 

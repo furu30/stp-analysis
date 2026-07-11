@@ -131,7 +131,7 @@ function buildPhase1Prompt(companyName, productService, marketType) {
 この企業のバリューチェーン分析（ポーターモデル8区分）を実施してください。
 各カテゴリの各項目について、この企業の強み・特徴を推定し、分析結果を生成してください。
 すべての項目に内容を記入する必要はありません。強みが明確な項目のみ詳しく記入し、それ以外は空文字列としてください。
-最後にTop5の強みを選定し、rank（1〜5）を付与してください。
+最後にTopの強みを5〜7個選定し、rank（1〜7）を付与してください。
 
 ## バリューチェーン カテゴリ構造（id, 項目名は必ずこの通りに）
 ${catDesc}
@@ -175,8 +175,8 @@ ${catDesc}
 ## 制約
 - categoriesは必ず8カテゴリ（vc1〜vc8）を含める
 - 各カテゴリのitemsはデフォルト項目数を維持（vc1:4個, vc2:6個, vc3:5個, vc4:6個, vc5:5個, vc6:5個, vc7:5個, vc8:5個）
-- Top5に選んだ項目のisStrengthFlagをtrueにする
-- top5は必ず5個
+- Top強みに選んだ項目のisStrengthFlagをtrueにする
+- top5は5〜7個（重要なものから順に。5個で十分な場合は5個でよい）
 - "その他"項目は基本的にstrengthを空文字列とする
 - JSONのみ出力。説明文不要。`;
 }
@@ -530,8 +530,8 @@ function normalizeStep0(raw, marketType) {
     };
   });
 
-  // Top5 の正規化
-  const top5 = (raw.top5 || []).slice(0, 5).map((t, i) => ({
+  // Top強み（最大7件）の正規化
+  const top5 = (raw.top5 || []).slice(0, 7).map((t, i) => ({
     id: t.id || '',
     name: t.name || '',
     rank: t.rank || (i + 1),

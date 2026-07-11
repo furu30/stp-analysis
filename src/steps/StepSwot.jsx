@@ -31,12 +31,34 @@ const QUADRANTS = [
   },
 ];
 
-const CROSS_STRATEGIES = [
-  { key: 'so', label: '積極戦略 (S×O)', desc: '強みを活かして機会を最大化', color: 'blue', icon: '🚀' },
-  { key: 'st', label: '差別化戦略 (S×T)', desc: '強みを活かして脅威を回避・克服', color: 'indigo', icon: '🛡️' },
-  { key: 'wo', label: '改善戦略 (W×O)', desc: '弱みを克服して機会を活用', color: 'emerald', icon: '🔧' },
-  { key: 'wt', label: '防衛戦略 (W×T)', desc: '弱みと脅威の最悪シナリオを回避', color: 'red', icon: '🏰' },
+// クロスSWOTの「考える視点」。入力枠ではなく、戦略オプションを発想するためのヒント
+const CROSS_VIEWPOINTS = [
+  { key: 'so', label: '積極戦略 (S×O)', desc: '強みを活かして機会を最大化', icon: '🚀' },
+  { key: 'st', label: '差別化戦略 (S×T)', desc: '強みを活かして脅威を回避・克服', icon: '🛡️' },
+  { key: 'wo', label: '改善戦略 (W×O)', desc: '弱みを克服して機会を活用', icon: '🔧' },
+  { key: 'wt', label: '防衛戦略 (W×T)', desc: '弱みと脅威の最悪シナリオを回避', icon: '🏰' },
 ];
+
+const TYPE_BADGE = {
+  so: 'bg-blue-100 text-blue-700 border-blue-300',
+  st: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  wo: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+  wt: 'bg-red-100 text-red-700 border-red-300',
+};
+
+const EVAL_LEVELS = ['高', '中', '低'];
+const MIN_OPTIONS = 5; // 戦略オプションの初期表示数
+
+// 効果×実現性から優先度を算出（両方入力時のみ）
+function calcPriority(effect, feasibility) {
+  const score = { '高': 3, '中': 2, '低': 1 };
+  if (!score[effect] || !score[feasibility]) return null;
+  const total = score[effect] + score[feasibility];
+  if (total >= 6) return { label: '◎ 最優先', cls: 'bg-red-500 text-white' };
+  if (total >= 5) return { label: '○ 優先', cls: 'bg-orange-400 text-white' };
+  if (total >= 4) return { label: '△ 検討', cls: 'bg-yellow-400 text-gray-800' };
+  return { label: '▽ 保留', cls: 'bg-gray-300 text-gray-600' };
+}
 
 const colorMap = {
   blue: { bg: 'bg-blue-50', border: 'border-blue-200', header: 'bg-blue-500', tag: 'bg-blue-100 text-blue-700', hoverBg: 'hover:bg-blue-100' },
@@ -46,10 +68,11 @@ const colorMap = {
 };
 
 const MIN_ROWS = 3; // 各象限の最小行数
+const MAX_ROWS = 7; // 各象限の最大項目数
 
 export default function StepSwot({ onNext, onBack }) {
   const { project, dispatch } = useProject();
-  const swot = project.swot || { strengths: [], weaknesses: [], opportunities: [], threats: [], crossStrategies: { so: '', st: '', wo: '', wt: '' } };
+  const swot = project.swot || { strengths: [], weaknesses: [], opportunities: [], threats: [], strategyOptions: [] };
   const [showCross, setShowCross] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiCrossGenerating, setAiCrossGenerating] = useState(false);
@@ -89,6 +112,7 @@ export default function StepSwot({ onNext, onBack }) {
 
   const addItem = (key) => {
     const current = getItems(key);
+    if (current.length >= MAX_ROWS) return;
     updateList(key, [...current, '']);
   };
 
@@ -106,8 +130,40 @@ export default function StepSwot({ onNext, onBack }) {
     updateList(key, current);
   };
 
-  const updateCross = (key, value) => {
-    dispatch({ type: 'UPDATE_SWOT', payload: { crossStrategies: { ...swot.crossStrategies, [key]: value } } });
+  // 戦略オプション（最低MIN_OPTIONS枠を表示）
+  const getOptions = useCallback(() => {
+    const opts = swot.strategyOptions || [];
+    if (opts.length >= MIN_OPTIONS) return opts;
+    return [
+      ...opts,
+      ...Array.from({ length: MIN_OPTIONS - opts.length }, (_, i) => ({
+        id: `opt_pad_${opts.length + i}`, type: '', text: '', effect: '', feasibility: '',
+      })),
+    ];
+  }, [swot.strategyOptions]);
+
+  const updateOptions = (options) => {
+    dispatch({ type: 'UPDATE_SWOT', payload: { strategyOptions: options } });
+  };
+
+  const updateOption = (index, field, value) => {
+    const options = [...getOptions()];
+    options[index] = { ...options[index], [field]: value };
+    updateOptions(options);
+  };
+
+  const addOption = () => {
+    const options = getOptions();
+    updateOptions([...options, { id: `opt_${Date.now()}`, type: '', text: '', effect: '', feasibility: '' }]);
+  };
+
+  const removeOption = (index) => {
+    const options = [...getOptions()];
+    options.splice(index, 1);
+    while (options.length < MIN_OPTIONS) {
+      options.push({ id: `opt_pad_${Date.now()}_${options.length}`, type: '', text: '', effect: '', feasibility: '' });
+    }
+    updateOptions(options);
   };
 
   // 例を挿入
@@ -117,8 +173,10 @@ export default function StepSwot({ onNext, onBack }) {
     const emptyIdx = current.findIndex(v => !v);
     if (emptyIdx >= 0) {
       current[emptyIdx] = example;
-    } else {
+    } else if (current.length < MAX_ROWS) {
       current.push(example);
+    } else {
+      return; // 最大項目数に達している場合は追加しない
     }
     updateList(key, current);
   };
@@ -142,12 +200,12 @@ export default function StepSwot({ onNext, onBack }) {
       // AIの結果をパース（JSON配列形式を期待）
       try {
         const parsed = JSON.parse(result.match(/\{[\s\S]*\}/)?.[0] || result);
-        if (parsed.weaknesses) updateList('weaknesses', parsed.weaknesses);
-        if (parsed.opportunities) updateList('opportunities', parsed.opportunities);
-        if (parsed.threats) updateList('threats', parsed.threats);
+        if (parsed.weaknesses) updateList('weaknesses', parsed.weaknesses.slice(0, MAX_ROWS));
+        if (parsed.opportunities) updateList('opportunities', parsed.opportunities.slice(0, MAX_ROWS));
+        if (parsed.threats) updateList('threats', parsed.threats.slice(0, MAX_ROWS));
         // 強みが空ならAI提案も取り込む
         if (parsed.strengths && effectiveStrengths.filter(Boolean).length === 0) {
-          updateList('strengths', parsed.strengths);
+          updateList('strengths', parsed.strengths.slice(0, MAX_ROWS));
         }
       } catch {
         // テキストとして行分割
@@ -162,9 +220,9 @@ export default function StepSwot({ onNext, onBack }) {
           else if (/^[Tt脅]/.test(clean)) current = t;
           if (current && clean) current.push(clean.replace(/^[SWOT弱み機会脅威:\s]+/i, '').trim());
         }
-        if (w.length) updateList('weaknesses', w);
-        if (o.length) updateList('opportunities', o);
-        if (t.length) updateList('threats', t);
+        if (w.length) updateList('weaknesses', w.slice(0, MAX_ROWS));
+        if (o.length) updateList('opportunities', o.slice(0, MAX_ROWS));
+        if (t.length) updateList('threats', t.slice(0, MAX_ROWS));
       }
     } catch (e) {
       alert(`AI生成エラー: ${e.message}`);
@@ -195,13 +253,25 @@ export default function StepSwot({ onNext, onBack }) {
 
       try {
         const parsed = JSON.parse(result.match(/\{[\s\S]*\}/)?.[0] || result);
-        if (parsed.so) updateCross('so', parsed.so);
-        if (parsed.st) updateCross('st', parsed.st);
-        if (parsed.wo) updateCross('wo', parsed.wo);
-        if (parsed.wt) updateCross('wt', parsed.wt);
+        const options = (parsed.options || [])
+          .filter(o => o && o.text)
+          .slice(0, 8)
+          .map((o, i) => ({
+            id: `opt_ai_${Date.now()}_${i}`,
+            type: ['so', 'st', 'wo', 'wt'].includes(o.type) ? o.type : '',
+            text: o.text,
+            effect: EVAL_LEVELS.includes(o.effect) ? o.effect : '',
+            feasibility: EVAL_LEVELS.includes(o.feasibility) ? o.feasibility : '',
+          }));
+        if (options.length > 0) {
+          // 手入力済みのオプションは残し、空枠をAI案で置き換える
+          const existing = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
+          updateOptions([...existing, ...options]);
+        }
       } catch {
-        // テキスト全体をso戦略に入れる
-        updateCross('so', result.trim());
+        // パース失敗時はテキスト全体を1つ目のオプションに入れる
+        const existing = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
+        updateOptions([...existing, { id: `opt_ai_${Date.now()}`, type: '', text: result.trim(), effect: '', feasibility: '' }]);
       }
     } catch (e) {
       alert(`AI生成エラー: ${e.message}`);
@@ -227,8 +297,8 @@ export default function StepSwot({ onNext, onBack }) {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="section-title mb-1">クロスSWOT分析</h2>
-              <p className="text-sm text-gray-500">SWOT4象限を掛け合わせ、具体的な戦略方向性を導き出します。</p>
+              <h2 className="section-title mb-1">クロスSWOT分析 → 戦略オプション</h2>
+              <p className="text-sm text-gray-500">4つの組み合わせ（S×O・S×T・W×O・W×T）の視点で発想し、自社に合う戦略オプションを導き出して評価します。</p>
             </div>
             <div className="flex gap-2">
               {hasApiKey && (
@@ -256,27 +326,93 @@ export default function StepSwot({ onNext, onBack }) {
             ))}
           </div>
 
-          {/* クロス戦略入力 */}
-          <div className="grid grid-cols-2 gap-4">
-            {CROSS_STRATEGIES.map(cs => (
-              <div key={cs.key} className="border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">{cs.icon}</span>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-800">{cs.label}</h4>
-                    <p className="text-[10px] text-gray-400">{cs.desc}</p>
+          {/* 考える視点（ヒントカード）: 入力枠ではなく発想のガイド */}
+          <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-xs font-bold text-gray-600 mb-2">
+              💭 4つの組み合わせの視点で考える（すべての枠を埋める必要はありません）
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {CROSS_VIEWPOINTS.map(cv => (
+                <div key={cv.key} className={`rounded-lg border px-2 py-1.5 bg-white ${TYPE_BADGE[cv.key].split(' ')[2]}`}>
+                  <div className="text-[11px] font-bold text-gray-700">{cv.icon} {cv.label}</div>
+                  <div className="text-[10px] text-gray-400">{cv.desc}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2">
+              この4視点をヒントに「自社に合う戦略」をオプションとして挙げ、各オプションがどの組み合わせから生まれたかを選択してください。最後に効果・実現性で評価し、優先順位を付けます。
+            </p>
+          </div>
+
+          {/* 戦略オプション入力 */}
+          <div className="space-y-3">
+            {getOptions().map((opt, idx) => {
+              const priority = calcPriority(opt.effect, opt.feasibility);
+              return (
+                <div key={opt.id || idx} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-sm font-bold text-primary shrink-0">戦略オプション {idx + 1}</span>
+                    <select
+                      className="input-field text-xs py-1 w-auto"
+                      value={opt.type || ''}
+                      onChange={(e) => updateOption(idx, 'type', e.target.value)}
+                    >
+                      <option value="">組み合わせを選択...</option>
+                      {CROSS_VIEWPOINTS.map(cv => (
+                        <option key={cv.key} value={cv.key}>{cv.icon} {cv.label}：{cv.desc}</option>
+                      ))}
+                    </select>
+                    {opt.type && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${TYPE_BADGE[opt.type]}`}>
+                        {CROSS_VIEWPOINTS.find(cv => cv.key === opt.type)?.label}
+                      </span>
+                    )}
+                    <div className="flex-1" />
+                    {priority && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${priority.cls}`}>{priority.label}</span>
+                    )}
+                    <button
+                      onClick={() => removeOption(idx)}
+                      className="text-gray-300 hover:text-red-500 text-sm cursor-pointer shrink-0"
+                      title="このオプションを削除"
+                    >×</button>
+                  </div>
+                  <textarea
+                    className="textarea-field text-sm"
+                    rows={3}
+                    value={opt.text || ''}
+                    onChange={(e) => updateOption(idx, 'text', e.target.value)}
+                    placeholder="自社に合うと考えた戦略を記入...（例: 強みの◯◯を活かして、△△市場の拡大に対応する）"
+                  />
+                  {/* オプション評価 */}
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-[11px] font-bold text-gray-500">評価:</span>
+                    {[['effect', '効果（成果の大きさ）'], ['feasibility', '実現性（実行しやすさ）']].map(([field, label]) => (
+                      <div key={field} className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-gray-500">{label}</span>
+                        {EVAL_LEVELS.map(level => (
+                          <button
+                            key={level}
+                            onClick={() => updateOption(idx, field, opt[field] === level ? '' : level)}
+                            className={`text-[11px] px-2 py-0.5 rounded cursor-pointer transition-all border
+                              ${opt[field] === level
+                                ? 'bg-primary text-white border-primary font-bold'
+                                : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'}`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <textarea
-                  className="textarea-field text-sm"
-                  rows={4}
-                  value={swot.crossStrategies?.[cs.key] || ''}
-                  onChange={(e) => updateCross(cs.key, e.target.value)}
-                  placeholder={`${cs.desc}の具体的な戦略を記入...`}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          <button onClick={addOption} className="btn-secondary btn-sm mt-3">
+            ＋ 戦略オプションを追加
+          </button>
 
           {/* AIコメント */}
           <div className="mt-6">
@@ -289,7 +425,7 @@ export default function StepSwot({ onNext, onBack }) {
                   weaknesses: quadrantData.weaknesses.filter(Boolean),
                   opportunities: quadrantData.opportunities.filter(Boolean),
                   threats: quadrantData.threats.filter(Boolean),
-                  crossStrategies: swot.crossStrategies,
+                  strategyOptions: (swot.strategyOptions || []).filter(o => (o.text || '').trim()),
                 },
                 top5: project.step0.top5,
               }}
@@ -372,7 +508,12 @@ export default function StepSwot({ onNext, onBack }) {
                     >
                       {isExampleOpen ? '例を閉じる' : '💡 入力例'}
                     </button>
-                    <button onClick={() => addItem(q.key)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">+ 追加</button>
+                    <button
+                      onClick={() => addItem(q.key)}
+                      disabled={items.length >= MAX_ROWS}
+                      className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={items.length >= MAX_ROWS ? `最大${MAX_ROWS}項目までです` : ''}
+                    >+ 追加{items.length >= MAX_ROWS ? `（最大${MAX_ROWS}）` : ''}</button>
                   </div>
                 </div>
                 <p className="text-[10px] text-gray-400 mb-2">{q.help}</p>

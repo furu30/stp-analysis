@@ -155,7 +155,7 @@ ${settings.businessDescription ? `
 <div class="print-break"></div>
 <h1 id="sec1">1. 自社の強み（バリューチェーン分析）</h1>
 ${(step0.top5 || []).length > 0 ? `
-<h2>1.1 Top5 強み</h2>
+<h2>1.1 Top強み</h2>
 ${step0.top5.map((item, idx) => `
 <div class="strength-card">
   <div>
@@ -168,7 +168,7 @@ ${step0.top5.map((item, idx) => `
   ${item.communication ? `<div class="body"><div class="label">■ 顧客への伝達状況</div><div>${escapeHtml(item.communication)}</div></div>` : ''}
 </div>
 `).join('')}
-` : '<p style="color:#94a3b8;">（Top5 が未選定です）</p>'}
+` : '<p style="color:#94a3b8;">（Top強みが未選定です）</p>'}
 ${aiComments?.strengthSummary ? `
 <h2>1.2 強み総評（AI生成）</h2>
 <div class="comment-box"><p>${escapeHtml(aiComments.strengthSummary)}</p></div>
@@ -372,7 +372,7 @@ function buildSwotSection(swot, step0, aiComments) {
   const weaknesses = (swot.weaknesses || []).filter(Boolean);
   const opportunities = (swot.opportunities || []).filter(Boolean);
   const threats = (swot.threats || []).filter(Boolean);
-  const cs = swot.crossStrategies || {};
+  const strategyOptions = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
 
   let html = '';
 
@@ -400,21 +400,24 @@ function buildSwotSection(swot, step0, aiComments) {
 `;
   }
 
-  if (cs.so || cs.st || cs.wo || cs.wt) {
-    const entries = [
-      { key: 'so', label: 'SO戦略', sub: '強み × 機会（積極攻勢）', text: cs.so },
-      { key: 'st', label: 'ST戦略', sub: '強み × 脅威（差別化）', text: cs.st },
-      { key: 'wo', label: 'WO戦略', sub: '弱み × 機会（段階的克服）', text: cs.wo },
-      { key: 'wt', label: 'WT戦略', sub: '弱み × 脅威（防衛・撤退）', text: cs.wt },
-    ];
-    html += `<h2>5.2 クロスSWOT戦略</h2>`;
-    entries.forEach(e => {
-      if (!e.text) return;
+  if (strategyOptions.length > 0) {
+    const typeMeta = {
+      so: '積極戦略（S×O）',
+      st: '差別化戦略（S×T）',
+      wo: '改善戦略（W×O）',
+      wt: '防衛戦略（W×T）',
+    };
+    html += `<h2>5.2 戦略オプション（クロスSWOT）</h2>`;
+    html += `<p style="font-size:12px;color:#64748b;">4つの組み合わせ視点（S×O・S×T・W×O・W×T）から導き出した戦略オプションと評価。</p>`;
+    strategyOptions.forEach((opt, idx) => {
+      const evalParts = [];
+      if (opt.effect) evalParts.push(`効果:${escapeHtml(opt.effect)}`);
+      if (opt.feasibility) evalParts.push(`実現性:${escapeHtml(opt.feasibility)}`);
       html += `
-<div class="cross-card cross-${e.key}">
-  <div class="label">${e.label}</div>
-  <div class="sub">〔${e.sub}〕</div>
-  <div class="text">${escapeHtml(e.text)}</div>
+<div class="cross-card cross-${opt.type || 'none'}">
+  <div class="label">戦略オプション${idx + 1}</div>
+  ${typeMeta[opt.type] ? `<div class="sub">〔${typeMeta[opt.type]}〕${evalParts.length > 0 ? ` ［${evalParts.join('・')}］` : ''}</div>` : (evalParts.length > 0 ? `<div class="sub">［${evalParts.join('・')}］</div>` : '')}
+  <div class="text">${escapeHtml(opt.text)}</div>
 </div>
 `;
     });

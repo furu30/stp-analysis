@@ -398,7 +398,7 @@ export default function Step3Positioning({ onNext, onBack, onSkipToExport, onUns
             </div>
             {showTop5 && (
               <div className="mt-2 pt-2 border-t border-gray-200">
-                <p className="text-xs text-gray-500 mb-1">💪 Top5強みからサジェスト：</p>
+                <p className="text-xs text-gray-500 mb-1">💪 Top強みからサジェスト：</p>
                 <div className="flex flex-wrap gap-1">
                   {top5.map(item => (
                     <button

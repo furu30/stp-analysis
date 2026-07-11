@@ -143,7 +143,7 @@ export async function exportToWord(project) {
   sections.push(heading('1. 自社の強み（バリューチェーン分析）'));
 
   if ((step0.top5 || []).length > 0) {
-    sections.push(heading('1.1 Top5 強み', HeadingLevel.HEADING_2));
+    sections.push(heading('1.1 Top強み', HeadingLevel.HEADING_2));
 
     step0.top5.forEach((item, idx) => {
       sections.push(new Paragraph({
@@ -393,26 +393,31 @@ export async function exportToWord(project) {
       sections.push(new Table({ rows: swotRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
     }
 
-    // 5.2 クロス戦略
-    const cs = swot.crossStrategies || {};
-    if (cs.so || cs.st || cs.wo || cs.wt) {
-      sections.push(heading('5.2 クロスSWOT戦略', HeadingLevel.HEADING_2));
-      const crossEntries = [
-        { key: 'so', label: 'SO戦略', sub: '強み × 機会（積極攻勢）', color: '1E40AF', shading: COLORS.strengthBg, text: cs.so },
-        { key: 'st', label: 'ST戦略', sub: '強み × 脅威（差別化）', color: '7C3AED', shading: COLORS.headerBg, text: cs.st },
-        { key: 'wo', label: 'WO戦略', sub: '弱み × 機会（段階的克服）', color: '065F46', shading: COLORS.opportunityBg, text: cs.wo },
-        { key: 'wt', label: 'WT戦略', sub: '弱み × 脅威（防衛・撤退）', color: '991B1B', shading: COLORS.weaknessBg, text: cs.wt },
-      ];
-      crossEntries.forEach(entry => {
-        if (!entry.text) return;
+    // 5.2 戦略オプション（クロスSWOTの4視点から導出・評価）
+    const options = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
+    if (options.length > 0) {
+      sections.push(heading('5.2 戦略オプション（クロスSWOT）', HeadingLevel.HEADING_2));
+      sections.push(para('4つの組み合わせ視点（S×O・S×T・W×O・W×T）から導き出した戦略オプションと評価。'));
+      const typeMeta = {
+        so: { label: '積極戦略（S×O）', color: '1E40AF' },
+        st: { label: '差別化戦略（S×T）', color: '7C3AED' },
+        wo: { label: '改善戦略（W×O）', color: '065F46' },
+        wt: { label: '防衛戦略（W×T）', color: '991B1B' },
+      };
+      options.forEach((opt, idx) => {
+        const meta = typeMeta[opt.type];
+        const evalParts = [];
+        if (opt.effect) evalParts.push(`効果:${opt.effect}`);
+        if (opt.feasibility) evalParts.push(`実現性:${opt.feasibility}`);
         sections.push(new Paragraph({
           children: [
-            new TextRun({ text: `${entry.label}`, size: 26, bold: true, color: entry.color }),
-            new TextRun({ text: `  〔${entry.sub}〕`, size: 18, color: '6B7280' }),
+            new TextRun({ text: `戦略オプション${idx + 1}`, size: 26, bold: true, color: meta?.color || '374151' }),
+            ...(meta ? [new TextRun({ text: `  〔${meta.label}〕`, size: 18, color: '6B7280' })] : []),
+            ...(evalParts.length > 0 ? [new TextRun({ text: `  ［${evalParts.join('・')}］`, size: 18, color: '6B7280' })] : []),
           ],
           spacing: { before: 240, after: 80 },
         }));
-        sections.push(...multiLine(entry.text));
+        sections.push(...multiLine(opt.text));
       });
     }
 

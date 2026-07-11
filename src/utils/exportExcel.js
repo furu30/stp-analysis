@@ -45,7 +45,7 @@ export function exportToExcel(project) {
     });
   });
   s1.push([]);
-  s1.push(['【Top5強み】']);
+  s1.push(['【Top強み（最大7件）】']);
   s1.push(['順位', '強み', 'カテゴリ', '重要理由（模倣困難性・希少性・顧客価値）']);
   (step0.top5 || []).forEach((t, i) => {
     s1.push([i + 1, t.name || '', t.categoryName || '', t.reason || '']);

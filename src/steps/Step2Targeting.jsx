@@ -28,7 +28,7 @@ function StrengthsReferencePanel({ top5, companyName }) {
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between p-3 text-sm font-semibold text-blue-700 cursor-pointer"
       >
-        <span>💪 {companyName || '自社'}のTop5強み（Step 0で選定済）— 自社適合性の参考に</span>
+        <span>💪 {companyName || '自社'}のTop強み（Step 0で選定済）— 自社適合性の参考に</span>
         <span className="text-xs">{expanded ? '▲ 閉じる' : '▼ 開く'}</span>
       </button>
       {expanded && (

@@ -162,12 +162,9 @@ export function createInitialProject() {
       weaknesses: [],
       opportunities: [],
       threats: [],
-      crossStrategies: {
-        so: '', // 強み×機会
-        st: '', // 強み×脅威
-        wo: '', // 弱み×機会
-        wt: '', // 弱み×脅威
-      },
+      // 戦略オプション方式: 4つの組み合わせ視点（S×O/S×T/W×O/W×T）で発想し、
+      // 自社に合う戦略オプションを導き出して入力→視点を選択→効果・実現性で評価する
+      strategyOptions: [], // [{ id, type: 'so'|'st'|'wo'|'wt'|'', text, effect: '高'|'中'|'低'|'', feasibility: 同左 }]
       skipped: false,
     },
     aiComments: {

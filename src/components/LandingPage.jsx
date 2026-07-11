@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 
 const FEATURES = [
-  { icon: '💪', title: '強み棚卸', desc: 'バリューチェーン分析でTop5を選定' },
+  { icon: '💪', title: '強み棚卸', desc: 'バリューチェーン分析でTop強みを選定' },
   { icon: '📊', title: 'セグメンテーション', desc: '16の切り口で市場を細分化' },
   { icon: '🎯', title: 'ターゲティング', desc: '6軸スコアリングで最適市場を選定' },
   { icon: '📍', title: 'ポジショニング', desc: '競合マップで差別化を可視化' },
-  { icon: '🔄', title: 'SWOT分析', desc: 'クロスSWOTで戦略方向性を導出' },
+  { icon: '🔄', title: 'SWOT分析', desc: 'クロスSWOTで戦略オプションを導出・評価' },
   { icon: '📄', title: '5形式出力', desc: 'Excel・Word・PPTX・PDF・HTML' },
 ];
 

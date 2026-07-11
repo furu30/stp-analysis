@@ -12,9 +12,18 @@ function migrateProject(data) {
   if (!data.swot) {
     data.swot = {
       strengths: [], weaknesses: [], opportunities: [], threats: [],
-      crossStrategies: { so: '', st: '', wo: '', wt: '' },
+      strategyOptions: [],
       skipped: false,
     };
+  }
+  // v4→v5: クロスSWOTを「4象限固定入力」から「戦略オプション方式」に移行
+  // 旧 crossStrategies の記入内容は、視点タグ付きの戦略オプションとして引き継ぐ
+  if (data.swot && !data.swot.strategyOptions) {
+    const cs = data.swot.crossStrategies || {};
+    data.swot.strategyOptions = ['so', 'st', 'wo', 'wt']
+      .filter(k => (cs[k] || '').trim())
+      .map((k, i) => ({ id: `opt_migrated_${i}`, type: k, text: cs[k], effect: '', feasibility: '' }));
+    delete data.swot.crossStrategies;
   }
   // v2→v3: step3.kbfフィールドを追加
   if (data.step3 && !data.step3.kbf) {

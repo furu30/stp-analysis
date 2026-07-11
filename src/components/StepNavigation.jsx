@@ -61,8 +61,8 @@ function calcProgress(project) {
     p.swot = -1;
   } else {
     const swotItems = [...(swot.strengths || []), ...(swot.weaknesses || []), ...(swot.opportunities || []), ...(swot.threats || [])].filter(Boolean).length;
-    const crossFilled = Object.values(swot.crossStrategies || {}).filter(Boolean).length;
-    p.swot = Math.round(((Math.min(swotItems, 8) / 8) * 50 + (crossFilled / 4) * 50));
+    const crossFilled = (swot.strategyOptions || []).filter(o => (o.text || '').trim()).length;
+    p.swot = Math.round(((Math.min(swotItems, 8) / 8) * 50 + (Math.min(crossFilled, 3) / 3) * 50));
   }
 
   p.export = 0; // always available
@@ -82,7 +82,7 @@ function nextActions(project) {
   const top5 = (project.step0.top5 || []).length;
   a.step0 = project.step0.skipped ? ''
     : flagged < 5 ? `強みに★を付けましょう（あと${5 - flagged}個）`
-    : top5 < 5 ? '「強みを整理する」からTop5を確定しましょう'
+    : top5 < 5 ? '「強みを整理する」からTop強み（5〜7件）を確定しましょう'
     : '';
 
   const axes = project.step1.selectedAxes.length;
@@ -114,9 +114,9 @@ function nextActions(project) {
     a.swot = '';
   } else {
     const swotItems = [...(swot.weaknesses || []), ...(swot.opportunities || []), ...(swot.threats || [])].filter(Boolean).length;
-    const crossFilled = Object.values(swot.crossStrategies || {}).filter(Boolean).length;
+    const crossFilled = (swot.strategyOptions || []).filter(o => (o.text || '').trim()).length;
     a.swot = swotItems === 0 ? '弱み・機会・脅威を入力しましょう（AI生成も使えます）'
-      : crossFilled === 0 ? 'クロスSWOT戦略（4象限）を記入しましょう'
+      : crossFilled === 0 ? 'クロスSWOTの4視点で戦略オプションを検討・入力しましょう'
       : '';
   }
 

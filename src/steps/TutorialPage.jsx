@@ -382,7 +382,7 @@ export default function TutorialPage({ onClose }) {
             <StepBadge number={1} text="カテゴリタブ（調達〜マージン管理）を切り替えて各項目を確認" />
             <StepBadge number={2} text="各項目の「強み・特徴」欄に自社の強みを記入" />
             <StepBadge number={3} text="「対外発信」欄に、その強みをどう発信しているか記入" />
-            <StepBadge number={4} text="画面下部の「Top5」で特に重要な強みを5つ選定" />
+            <StepBadge number={4} text="「強みを整理する」で特に重要な強みを5〜7つ選定" />
 
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 my-4">
               <p className="text-xs font-bold text-gray-700 mb-2">8つのバリューチェーンカテゴリ</p>
@@ -394,7 +394,7 @@ export default function TutorialPage({ onClose }) {
             </div>
 
             <Tip>
-              全項目を埋める必要はありません。強みが明確な項目を中心に記入し、Top5の選定に注力しましょう。
+              全項目を埋める必要はありません。強みが明確な項目を中心に記入し、Top強み（5〜7件）の選定に注力しましょう。
             </Tip>
           </SectionCard>
 
@@ -426,7 +426,7 @@ export default function TutorialPage({ onClose }) {
             </div>
 
             <Tip>
-              自社の強み（Step 0のTop5）が活かせる軸を優先的に選択すると、効果的なセグメンテーションができます。
+              自社の強み（Step 0のTop強み）が活かせる軸を優先的に選択すると、効果的なセグメンテーションができます。
             </Tip>
           </SectionCard>
 
@@ -587,9 +587,9 @@ export default function TutorialPage({ onClose }) {
               </div>
 
               <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-100">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">3. Top5の強みが分析の軸になる</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2">3. Top強みが分析の軸になる</h3>
                 <p className="text-xs text-gray-600">
-                  Step 0で選定するTop5の強みが、以降のセグメンテーション軸選定、
+                  Step 0で選定するTop強み（5〜7件）が、以降のセグメンテーション軸選定、
                   ターゲティング評価、ポジショニング軸設計のすべてに影響します。
                   ここに時間をかけることが分析全体の質を左右します。
                 </p>
