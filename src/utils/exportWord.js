@@ -473,7 +473,7 @@ export async function exportToWord(project) {
   }
 
   const doc = new Document({
-    creator: 'STP分析支援アプリ',
+    creator: '戦略コンパス',
     title: settings.projectName || 'STP分析レポート',
     description: `${settings.companyName || ''} STP分析レポート`,
     sections: [{

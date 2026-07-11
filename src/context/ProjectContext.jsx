@@ -258,7 +258,7 @@ export function ProjectProvider({ children }) {
           const data = JSON.parse(ev.target.result);
           // 本アプリのプロジェクトファイルかを最低限確認し、旧形式は最新構造に移行
           if (!data || typeof data !== 'object' || !data.settings || !data.step0) {
-            alert('このファイルはSTP分析アプリのプロジェクトファイル（.stp.json）ではないようです。');
+            alert('このファイルは戦略コンパス（旧STP分析アプリ）のプロジェクトファイル（.stp.json）ではないようです。');
             return;
           }
           dispatch({ type: 'SET_PROJECT', payload: migrateProject(data) });

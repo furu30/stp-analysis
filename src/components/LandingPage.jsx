@@ -74,30 +74,29 @@ export default function LandingPage({ onStart }) {
           {/* アイコンバッジ */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-8">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-blue-200 font-medium tracking-wide">Marketing Strategy Tool</span>
+            <span className="text-xs text-blue-200 font-medium tracking-wide">Strategy Compass</span>
           </div>
 
           {/* メインタイトル */}
           <h1 className="text-5xl md:text-7xl font-black text-white mb-4 tracking-tight leading-tight">
-            <span className="landing-text-gradient">STP分析</span>
-            <br />
-            <span className="text-3xl md:text-5xl font-bold text-blue-200/80">支援アプリ</span>
+            <span className="landing-text-gradient">戦略コンパス</span>
           </h1>
 
           {/* サブタイトル */}
           <p className="text-lg md:text-xl text-blue-300/70 max-w-2xl mx-auto mb-4 leading-relaxed font-light">
-            中小企業の<span className="text-blue-200 font-medium">マーケティング戦略</span>を
+            <span className="text-blue-200 font-medium">強み</span>を起点に、中小企業の
+            <span className="text-blue-200 font-medium">経営戦略</span>を
             <br className="hidden md:block" />
             ステップバイステップで策定する
           </p>
 
           {/* タグライン */}
           <div className="flex items-center justify-center gap-3 text-sm text-blue-400/60 mb-10">
-            <span>セグメンテーション</span>
+            <span>強み棚卸</span>
             <span className="w-1 h-1 rounded-full bg-blue-400/40" />
-            <span>ターゲティング</span>
+            <span>STP分析</span>
             <span className="w-1 h-1 rounded-full bg-blue-400/40" />
-            <span>ポジショニング</span>
+            <span>SWOT・戦略オプション</span>
           </div>
 
           {/* CTAボタン */}

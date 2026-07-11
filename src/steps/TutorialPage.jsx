@@ -106,7 +106,7 @@ export default function TutorialPage({ onClose }) {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <span className="text-3xl">📚</span>
-          STP分析支援アプリ 使い方ガイド
+          戦略コンパス 使い方ガイド
         </h1>
         <button
           onClick={onClose}
@@ -146,7 +146,7 @@ export default function TutorialPage({ onClose }) {
           {/* === 概要 === */}
           <SectionCard id="overview" title="このアプリについて" icon="📖">
             <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              STP分析支援アプリは、マーケティング戦略の基本フレームワークである
+              戦略コンパスは、マーケティング戦略の基本フレームワークである
               <strong>STP分析</strong>（Segmentation・Targeting・Positioning）を
               ステップバイステップで進められるツールです。
             </p>

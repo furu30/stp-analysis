@@ -40,7 +40,7 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOp
     <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0 shrink-0">
-          <h1 className="text-lg font-bold tracking-tight whitespace-nowrap">STP分析支援アプリ</h1>
+          <h1 className="text-lg font-bold tracking-tight whitespace-nowrap">戦略コンパス</h1>
           {project.settings.projectName && (
             <span
               className="bg-white/20 px-3 py-0.5 rounded-full text-sm max-w-[180px] truncate"

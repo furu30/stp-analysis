@@ -270,7 +270,7 @@ ${apItems.length > 0 ? `
 ` : ''}
 
 <div class="footer">
-  STP分析支援アプリ にて作成 | ${new Date().toLocaleDateString('ja-JP')}
+  戦略コンパス にて作成 | ${new Date().toLocaleDateString('ja-JP')}
 </div>
 
 </div>
