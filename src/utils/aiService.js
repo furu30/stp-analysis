@@ -9,7 +9,6 @@ function buildPrompt(type, data, tone) {
     strengthSummary: `以下のバリューチェーン分析データとTop5強みに基づき、自社の競争優位性について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。数値の羅列ではなく、戦略的示唆を含めること。`,
     targetingRationale: `以下のセグメントスコアデータ・Top5強み・選定ターゲットに基づき、メインターゲット選定の根拠について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。`,
     positioningComment: `以下の競合スコアマトリクス・Top5強み・ターゲットに基づき、ポジショニング戦略について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。`,
-    swotComment: `以下のSWOT分析データ（4象限と戦略オプションの一覧）に基づき、戦略オプションの評価・優先順位の示唆と優先すべきアクションを${toneLabel}のトーンで${charGuide}字程度のコメントとして生成してください。`,
     swotGenerate: `以下の企業情報・強み分析データに基づき、SWOT分析の「弱み(W)」「機会(O)」「脅威(T)」を各3〜7項目ずつ（重要なものから順に）推定してください。
 各項目は簡潔な1文（20〜40字）で記述すること。
 以下のJSON形式のみを出力。前置き・説明文は不要:
@@ -22,7 +21,7 @@ function buildPrompt(type, data, tone) {
 ・effect（効果）とfeasibility（実現性）は 高 / 中 / 低 のいずれかで評価すること
 以下のJSON形式のみを出力。前置き・説明文は不要:
 {"options":[{"type":"so","text":"...","effect":"高","feasibility":"中"}]}`,
-    overallStrategy: `以下のSTP分析全データに基づき、全体を通じた戦略的示唆を${toneLabel}のトーンで${charGuide}字程度のエグゼクティブサマリーとして生成してください。`,
+    overallStrategy: `以下のSTP分析全データ（強み・セグメント・ターゲット・ポジショニング・SWOTと戦略オプション）に基づき、全体を通じた戦略的示唆を${toneLabel}のトーンで${charGuide}字程度のエグゼクティブサマリーとして生成してください。戦略オプションの評価（効果・実現性）を踏まえた優先順位の示唆も含めること。`,
   };
 
   return `${instructions[type]}\n\nデータ:\n${dataJson}\n\n${type.includes('Generate') ? '' : 'コメントのみを出力。前置きや説明文は不要。'}`;

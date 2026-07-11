@@ -33,9 +33,7 @@ function migrateProject(data) {
   if (!data.customization) {
     data.customization = { theme: 'light', brandColor: '#2563eb', logoUrl: '' };
   }
-  // v1→v2: aiComments.swotComment を追加
   if (!data.aiComments) data.aiComments = {};
-  if (!data.aiComments.swotComment) data.aiComments.swotComment = '';
   return data;
 }
 

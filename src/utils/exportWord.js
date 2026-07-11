@@ -421,12 +421,6 @@ export async function exportToWord(project) {
       });
     }
 
-    if (aiComments?.swotComment) {
-      sections.push(
-        heading('5.3 SWOT総評（AIコメント）', HeadingLevel.HEADING_2),
-        ...multiLine(aiComments.swotComment),
-      );
-    }
   } else {
     sections.push(para('SWOT分析はスキップされました。'));
   }

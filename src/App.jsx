@@ -36,7 +36,18 @@ function AppContent() {
     }
   }, [showLanding, showDisclaimer]);
 
-  const goTo = (step) => setCurrentStep(step);
+  // 出力ページから戻るときだけ、SWOTステップをクロスSWOT画面から開く
+  const [swotStartAtCross, setSwotStartAtCross] = useState(false);
+
+  const goTo = (step) => {
+    setSwotStartAtCross(false);
+    setCurrentStep(step);
+  };
+
+  const backToCrossSwot = () => {
+    setSwotStartAtCross(true);
+    setCurrentStep('swot');
+  };
 
   const handleReset = useCallback(() => {
     const savedAISettings = { ...project.aiSettings };
@@ -71,7 +82,7 @@ function AppContent() {
         onOpenProjectList={() => setShowProjectList(true)}
       />
       {currentStep !== 'tutorial' && (
-        <StepNavigation currentStep={currentStep} onStepChange={setCurrentStep} />
+        <StepNavigation currentStep={currentStep} onStepChange={goTo} />
       )}
 
       <main className="flex-1 py-6 px-4">
@@ -115,10 +126,11 @@ function AppContent() {
           <StepSwot
             onNext={() => goTo('export')}
             onBack={() => goTo(project.step3.skipped ? 'step2' : 'step3')}
+            initialShowCross={swotStartAtCross}
           />
         )}
         {currentStep === 'export' && (
-          <ExportPage onBack={() => goTo('swot')} />
+          <ExportPage onBack={backToCrossSwot} />
         )}
         {currentStep === 'tutorial' && (
           <TutorialPage onClose={() => goTo('settings')} />

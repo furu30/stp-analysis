@@ -397,13 +397,6 @@ function buildSwotSection(swot, step0, aiComments) {
     });
   }
 
-  if (aiComments?.swotComment) {
-    html += `
-<h2>5.3 SWOT総評（AI生成）</h2>
-<div class="comment-box"><p>${escapeHtml(aiComments.swotComment)}</p></div>
-`;
-  }
-
   return html;
 }
 

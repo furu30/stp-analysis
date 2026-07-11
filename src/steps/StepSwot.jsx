@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useProject } from '../context/ProjectContext';
 import HelpTip from '../components/HelpTip';
-import AICommentBox from '../components/AICommentBox';
 import { generateAIComment } from '../utils/aiService';
 
 const QUADRANTS = [
@@ -70,10 +69,10 @@ const colorMap = {
 const MIN_ROWS = 3; // 各象限の最小行数
 const MAX_ROWS = 7; // 各象限の最大項目数
 
-export default function StepSwot({ onNext, onBack }) {
+export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
   const { project, dispatch } = useProject();
   const swot = project.swot || { strengths: [], weaknesses: [], opportunities: [], threats: [], strategyOptions: [] };
-  const [showCross, setShowCross] = useState(false);
+  const [showCross, setShowCross] = useState(initialShowCross);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiCrossGenerating, setAiCrossGenerating] = useState(false);
   const [showExamples, setShowExamples] = useState({});
@@ -413,25 +412,6 @@ export default function StepSwot({ onNext, onBack }) {
           <button onClick={addOption} className="btn-secondary btn-sm mt-3">
             ＋ 戦略オプションを追加
           </button>
-
-          {/* AIコメント */}
-          <div className="mt-6">
-            <AICommentBox
-              commentKey="swotComment"
-              inputData={{
-                settings: project.settings,
-                swot: {
-                  strengths: quadrantData.strengths.filter(Boolean),
-                  weaknesses: quadrantData.weaknesses.filter(Boolean),
-                  opportunities: quadrantData.opportunities.filter(Boolean),
-                  threats: quadrantData.threats.filter(Boolean),
-                  strategyOptions: (swot.strategyOptions || []).filter(o => (o.text || '').trim()),
-                },
-                top5: project.step0.top5,
-              }}
-              label="💡 SWOT分析コメント（AI生成）"
-            />
-          </div>
 
           <div className="mt-6 flex justify-between">
             <button onClick={() => setShowCross(false)} className="btn-secondary">← SWOT入力に戻る</button>

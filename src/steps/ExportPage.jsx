@@ -57,6 +57,13 @@ export default function ExportPage({ onBack }) {
           step1: project.step1,
           step2: project.step2,
           step3: project.step3.skipped ? { skipped: true } : project.step3,
+          swot: project.swot?.skipped ? { skipped: true } : {
+            strengths: (project.swot?.strengths || []).filter(Boolean),
+            weaknesses: (project.swot?.weaknesses || []).filter(Boolean),
+            opportunities: (project.swot?.opportunities || []).filter(Boolean),
+            threats: (project.swot?.threats || []).filter(Boolean),
+            strategyOptions: (project.swot?.strategyOptions || []).filter(o => (o.text || '').trim()),
+          },
         }}
         label="💡 総合戦略コメント（AIコメント - 報告書用エグゼクティブサマリー）"
       />

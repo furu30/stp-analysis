@@ -171,7 +171,6 @@ export function createInitialProject() {
       strengthSummary: '',
       targetingRationale: '',
       positioningComment: '',
-      swotComment: '',
       overallStrategy: '',
     },
     aiSettings: {
