@@ -168,10 +168,7 @@ export function createInitialProject() {
       skipped: false,
     },
     aiComments: {
-      strengthSummary: '',
-      targetingRationale: '',
-      positioningComment: '',
-      overallStrategy: '',
+      overallStrategy: '', // 報告書用エグゼクティブサマリー（AIコメントはこの1本に集約）
     },
     aiSettings: {
       provider: 'claude',

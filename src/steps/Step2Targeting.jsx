@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useProject } from '../context/ProjectContext';
-import AICommentBox from '../components/AICommentBox';
 import HelpTip from '../components/HelpTip';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -479,20 +478,6 @@ export default function Step2Targeting({ onNext, onBack, onSkipStep3 }) {
                 </div>
               );
             })}
-          </div>
-
-          {/* AIコメント */}
-          <div className="mt-6">
-            <AICommentBox
-              commentKey="targetingRationale"
-              inputData={{
-                settings: project.settings,
-                top5: project.step0.top5,
-                candidates: scoredCandidates,
-                targets,
-              }}
-              label="💡 ターゲティング戦略コメント（AI生成）"
-            />
           </div>
 
           <div className="mt-6 flex justify-between">

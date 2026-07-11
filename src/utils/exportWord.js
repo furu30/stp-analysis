@@ -174,12 +174,6 @@ export async function exportToWord(project) {
     });
   }
 
-  if (aiComments?.strengthSummary) {
-    sections.push(
-      heading('1.2 強み総評（AIコメント）', HeadingLevel.HEADING_2),
-      ...multiLine(aiComments.strengthSummary),
-    );
-  }
   sections.push(pageBreak());
 
   // ===== 2. セグメンテーション =====
@@ -282,12 +276,6 @@ export async function exportToWord(project) {
     });
   }
 
-  if (aiComments?.targetingRationale) {
-    sections.push(
-      heading('3.4 ターゲティング戦略コメント（AI生成）', HeadingLevel.HEADING_2),
-      ...multiLine(aiComments.targetingRationale),
-    );
-  }
   sections.push(pageBreak());
 
   // ===== 4. ポジショニング =====
@@ -332,12 +320,6 @@ export async function exportToWord(project) {
       sections.push(para('※ ポジショニングマップ等のグラフはHTMLレポートまたはアプリ画面をご参照ください。', { color: '6B7280', size: 18, spacing: { before: 100, after: 200 } }));
     }
 
-    if (aiComments?.positioningComment) {
-      sections.push(
-        heading('4.3 ポジショニング分析コメント（AI生成）', HeadingLevel.HEADING_2),
-        ...multiLine(aiComments.positioningComment),
-      );
-    }
   }
   sections.push(pageBreak());
 

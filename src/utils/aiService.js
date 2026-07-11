@@ -6,9 +6,6 @@ function buildPrompt(type, data, tone) {
   const dataJson = JSON.stringify(data, null, 2);
 
   const instructions = {
-    strengthSummary: `以下のバリューチェーン分析データとTop5強みに基づき、自社の競争優位性について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。数値の羅列ではなく、戦略的示唆を含めること。`,
-    targetingRationale: `以下のセグメントスコアデータ・Top5強み・選定ターゲットに基づき、メインターゲット選定の根拠について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。`,
-    positioningComment: `以下の競合スコアマトリクス・Top5強み・ターゲットに基づき、ポジショニング戦略について${toneLabel}のトーンで${charGuide}字程度のコメントを生成してください。`,
     swotGenerate: `以下の企業情報・強み分析データに基づき、SWOT分析の「弱み(W)」「機会(O)」「脅威(T)」を各3〜7項目ずつ（重要なものから順に）推定してください。
 各項目は簡潔な1文（20〜40字）で記述すること。
 以下のJSON形式のみを出力。前置き・説明文は不要:

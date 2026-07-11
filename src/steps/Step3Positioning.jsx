@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { DEFAULT_POSITIONING_AXES_BTOB, DEFAULT_POSITIONING_AXES_BTOC } from '../data/defaultData';
-import AICommentBox from '../components/AICommentBox';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, Cell, LabelList,
@@ -604,18 +603,6 @@ export default function Step3Positioning({ onNext, onBack, onSkipToExport, onUns
           </>
         )}
       </div>
-
-      <AICommentBox
-        commentKey="positioningComment"
-        inputData={{
-          competitors: allCompanies,
-          axes: step3.axes,
-          scores: step3.scores,
-          top5: project.step0.top5,
-          targets: project.step2.targets,
-        }}
-        label="💡 ポジショニングコメント（AIコメント）"
-      />
 
       <div className="mt-6 flex justify-between">
         <button onClick={onBack} className="btn-secondary">← 前のステップ</button>

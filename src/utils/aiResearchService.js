@@ -340,19 +340,15 @@ function buildPhase4Prompt(companyName, productService, dataSummary) {
 ${dataSummary}
 
 ## タスク
-上記のSTP分析結果に基づき、以下4種類の戦略コメントを生成してください。
-各コメントは提案書向けのフォーマルなトーンで400〜600字で記述してください。
+上記のSTP分析結果に基づき、報告書用の総合戦略コメント（エグゼクティブサマリー）を生成してください。
+提案書向けのフォーマルなトーンで400〜600字で記述してください。
 
 ## 出力JSON形式
 {
-  "strengthSummary": "バリューチェーン分析に基づく自社の競争優位性の要約。強みの本質、独自性、競合との違いを分析。",
-  "targetingRationale": "メインターゲット選定の根拠。なぜそのセグメントを選んだか、自社の強みとの適合性、市場機会を説明。",
-  "positioningComment": "ポジショニング戦略の分析。ストラテジーキャンバスの結果、マップ上の自社ポジション、競合との差別化を説明。",
   "overallStrategy": "【エグゼクティブサマリー】で始まる全体戦略。■強みの核心、■ターゲット戦略、■ポジショニング戦略、■今後の重点施策の4セクションで構成。"
 }
 
 ## 制約
-- 各コメントは400〜600字
 - overallStrategyは【エグゼクティブサマリー】で開始し、■で始まる4セクションを含める
 - 具体的な企業名・セグメント名・競合名を引用して言及すること
 - 数値（スコア）を適宜引用して根拠を示すこと
@@ -702,9 +698,6 @@ export async function runFullResearch(companyName, productService, marketType, a
   callbacks.onPhaseStart(4);
   const raw4 = await runPhase(4, context, aiSettings, signal);
   const aiComments = {
-    strengthSummary: raw4.strengthSummary || '',
-    targetingRationale: raw4.targetingRationale || '',
-    positioningComment: raw4.positioningComment || '',
     overallStrategy: raw4.overallStrategy || '',
   };
   results.aiComments = aiComments;

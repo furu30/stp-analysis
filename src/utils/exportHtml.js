@@ -167,10 +167,7 @@ ${step0.top5.map((item, idx) => `
 </div>
 `).join('')}
 ` : '<p style="color:#94a3b8;">（Top強みが未選定です）</p>'}
-${aiComments?.strengthSummary ? `
-<h2>1.2 強み総評（AI生成）</h2>
-<div class="comment-box"><p>${escapeHtml(aiComments.strengthSummary)}</p></div>
-` : ''}
+
 
 <!-- 2. セグメンテーション -->
 <div class="print-break"></div>
@@ -194,10 +191,7 @@ ${step1.selectedAxes.map(axis => {
 <div class="print-break"></div>
 <h1 id="sec3">3. ターゲティング</h1>
 ${buildTargetingSection(settings, step2)}
-${aiComments?.targetingRationale ? `
-<h2>3.4 ターゲティング戦略コメント（AI生成）</h2>
-<div class="comment-box"><p>${escapeHtml(aiComments.targetingRationale)}</p></div>
-` : ''}
+
 
 <!-- 4. ポジショニング -->
 <div class="print-break"></div>
@@ -224,16 +218,13 @@ ${buildScoreTable(step3, companies)}
 <div class="svg-container">${posMapSvg}</div>
 ` : ''}
 
-${aiComments?.positioningComment ? `
-<h2>4.4 ポジショニング分析コメント（AI生成）</h2>
-<div class="comment-box"><p>${escapeHtml(aiComments.positioningComment)}</p></div>
-` : ''}
+
 `}
 
 <!-- 5. SWOT分析 -->
 <div class="print-break"></div>
 <h1 id="sec5">5. SWOT分析</h1>
-${buildSwotSection(swot, step0, aiComments)}
+${buildSwotSection(swot, step0)}
 
 ${aiComments?.overallStrategy ? `
 <div class="print-break"></div>
@@ -336,7 +327,7 @@ ${selectedTargets.map(({ c, target }) => `
   return compTable + scoreTable + reasonsSection;
 }
 
-function buildSwotSection(swot, step0, aiComments) {
+function buildSwotSection(swot, step0) {
   if (!swot || swot.skipped) {
     return '<p style="color:#94a3b8;">SWOT分析はスキップされました。</p>';
   }

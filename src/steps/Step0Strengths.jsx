@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { VALUE_CHAIN_CATEGORIES } from '../data/defaultData';
-import AICommentBox from '../components/AICommentBox';
 
 const TOP_MIN = 5; // 強み選定の推奨数
 const TOP_MAX = 7; // 強み選定の最大数
@@ -149,12 +148,6 @@ export default function Step0Strengths({ onNext, onSkip }) {
               </div>
             </>
           )}
-
-          <AICommentBox
-            commentKey="strengthSummary"
-            inputData={{ categories: step0.categories, top5: step0.top5 }}
-            label="💡 強み棚卸サマリー（AIコメント）"
-          />
 
           <div className="mt-6 flex justify-end">
             <button onClick={onNext} className="btn-primary">

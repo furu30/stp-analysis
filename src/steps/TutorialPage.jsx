@@ -347,7 +347,7 @@ export default function TutorialPage({ onClose }) {
                   'Phase 1: バリューチェーン分析（強みの棚卸）',
                   'Phase 2: セグメンテーション（軸選択＋セグメント定義）',
                   'Phase 3: ターゲティング＆ポジショニング（評価・競合分析）',
-                  'Phase 4: AIコメント生成（戦略コメント4種類）',
+                  'Phase 4: 総合戦略コメント生成（エグゼクティブサマリー）',
                 ].map((phase, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
                     <span className="w-5 h-5 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0">{i + 1}</span>
@@ -591,10 +591,10 @@ export default function TutorialPage({ onClose }) {
               </div>
 
               <div className="p-4 bg-gradient-to-r from-cyan-50 to-sky-50 rounded-xl border border-cyan-100">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">5. AIコメントを活用する</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2">5. AI支援を活用する</h3>
                 <p className="text-xs text-gray-600">
-                  各ステップの画面下部にある「AIコメント生成」ボタンで、
-                  入力データに基づいた戦略コメントを自動生成できます。
+                  SWOTの弱み・機会・脅威の一括生成、クロスSWOTの戦略オプション案、
+                  出力ページの総合戦略コメント（エグゼクティブサマリー）をAIが下書きしてくれます。
                   提案書作成の参考になります。
                 </p>
               </div>
