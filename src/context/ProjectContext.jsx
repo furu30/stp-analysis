@@ -36,10 +36,6 @@ function migrateProject(data) {
   // v1→v2: aiComments.swotComment を追加
   if (!data.aiComments) data.aiComments = {};
   if (!data.aiComments.swotComment) data.aiComments.swotComment = '';
-  // v3→v4: actionPlanフィールドを追加
-  if (!data.actionPlan) {
-    data.actionPlan = { items: [] };
-  }
   return data;
 }
 
@@ -106,8 +102,6 @@ function projectReducer(state, action) {
       return { ...state, swot: { ...state.swot, ...action.payload } };
     case 'UPDATE_AI_COMMENTS':
       return { ...state, aiComments: { ...state.aiComments, ...action.payload } };
-    case 'UPDATE_ACTION_PLAN':
-      return { ...state, actionPlan: { ...state.actionPlan, ...action.payload } };
     case 'UPDATE_AI_SETTINGS':
       return { ...state, aiSettings: { ...state.aiSettings, ...action.payload } };
     case 'UPDATE_CUSTOMIZATION':

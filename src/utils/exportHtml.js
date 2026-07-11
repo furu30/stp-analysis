@@ -1,6 +1,5 @@
 export function exportToHtmlReport(project) {
-  const { settings, step0, step1, step2, step3, swot, aiComments, actionPlan } = project;
-  const apItems = (actionPlan?.items || []).filter(it => it.title || it.firstStep);
+  const { settings, step0, step1, step2, step3, swot, aiComments } = project;
 
   const companies = step3?.skipped ? [] : [{ id: 'self', name: settings.companyName || '自社' }, ...(step3?.competitors || [])];
 
@@ -134,7 +133,6 @@ export function exportToHtmlReport(project) {
     <li><a href="#sec4">4. ポジショニング</a></li>
     <li><a href="#sec5">5. SWOT分析</a></li>
     ${aiComments?.overallStrategy ? '<li><a href="#sec6">6. 総合戦略サマリー</a></li>' : ''}
-    ${apItems.length > 0 ? '<li><a href="#sec7">アクションプラン（実行計画）</a></li>' : ''}
   </ol>
 </div>
 
@@ -243,31 +241,7 @@ ${aiComments?.overallStrategy ? `
 <div class="overview-box"><p>${escapeHtml(aiComments.overallStrategy)}</p></div>
 ` : ''}
 
-${apItems.length > 0 ? `
-<div class="print-break"></div>
-<h1 id="sec7">${aiComments?.overallStrategy ? '7' : '6'}. アクションプラン（実行計画）</h1>
-<p style="color:#64748b; font-size:14px; margin-bottom:15px;">分析結果を実行に落とし込むための優先施策。優先度の高い順に記載。</p>
-<table>
-  <tr>
-    <th style="width:6%; text-align:center">優先</th>
-    <th style="width:24%">施策名</th>
-    <th style="width:22%">狙い・対象ターゲット</th>
-    <th style="width:28%">最初の一歩</th>
-    <th style="width:10%">担当</th>
-    <th style="width:10%">期限目安</th>
-  </tr>
-  ${apItems.map((it, idx) => `
-  <tr>
-    <td style="text-align:center; font-weight:700; color:#059669;">${idx + 1}</td>
-    <td><strong>${escapeHtml(it.title || '')}</strong></td>
-    <td>${escapeHtml(it.target || '')}</td>
-    <td>${escapeHtml(it.firstStep || '')}</td>
-    <td>${escapeHtml(it.owner || '')}</td>
-    <td>${escapeHtml(it.due || '')}</td>
-  </tr>
-  `).join('')}
-</table>
-` : ''}
+
 
 <div class="footer">
   戦略コンパス にて作成 | ${new Date().toLocaleDateString('ja-JP')}

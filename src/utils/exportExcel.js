@@ -19,12 +19,12 @@ function setColWidths(ws, widths) {
 }
 
 /**
- * STP分析結果をExcel（5シート構成）で出力する
+ * STP分析結果をExcel（4シート構成）で出力する
  * Sheet1: 強み棚卸 / Sheet2: セグメント一覧 / Sheet3: ターゲティング評価
- * Sheet4: ポジショニング評価 / Sheet5: アクションプラン
+ * Sheet4: ポジショニング評価
  */
 export function exportToExcel(project) {
-  const { settings, step0, step1, step2, step3, actionPlan } = project;
+  const { settings, step0, step1, step2, step3 } = project;
   const wb = XLSX.utils.book_new();
 
   // ===== Sheet 1: 強み棚卸 =====
@@ -115,16 +115,6 @@ export function exportToExcel(project) {
   const ws4 = XLSX.utils.aoa_to_sheet(s4);
   setColWidths(ws4, [22, 14, 14, 14, 14, 14, 14]);
   XLSX.utils.book_append_sheet(wb, ws4, 'ポジショニング評価');
-
-  // ===== Sheet 5: アクションプラン =====
-  const apItems = (actionPlan?.items || []).filter(it => it.title || it.firstStep);
-  const s5 = [['優先', '施策名', '狙い・対象ターゲット', '最初の一歩', '担当', '期限目安']];
-  apItems.forEach((it, i) => {
-    s5.push([i + 1, it.title || '', it.target || '', it.firstStep || '', it.owner || '', it.due || '']);
-  });
-  const ws5 = XLSX.utils.aoa_to_sheet(s5);
-  setColWidths(ws5, [6, 32, 26, 40, 12, 12]);
-  XLSX.utils.book_append_sheet(wb, ws5, 'アクションプラン');
 
   const date = new Date().toLocaleDateString('ja-JP').replace(/\//g, '');
   XLSX.writeFile(wb, `${settings.projectName || 'STP分析'}_${date}.xlsx`);

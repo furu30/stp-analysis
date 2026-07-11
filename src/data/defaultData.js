@@ -174,10 +174,6 @@ export function createInitialProject() {
       swotComment: '',
       overallStrategy: '',
     },
-    actionPlan: {
-      // 分析結果を「明日からの行動」に落とし込む実行計画
-      items: [], // [{ id, title, target, firstStep, owner, due }]
-    },
     aiSettings: {
       provider: 'claude',
       apiKey: '',

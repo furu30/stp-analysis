@@ -4,7 +4,6 @@ import { exportToWord } from '../utils/exportWord';
 import { exportToHtmlReport } from '../utils/exportHtml';
 import { exportToExcel } from '../utils/exportExcel';
 import AICommentBox from '../components/AICommentBox';
-import ActionPlanSection from '../components/ActionPlanSection';
 
 export default function ExportPage({ onBack }) {
   const { project } = useProject();
@@ -49,7 +48,7 @@ export default function ExportPage({ onBack }) {
         </div>
       )}
 
-      {/* まとめ→実行計画→出力 の順で「明日から動ける」状態に落とし込む */}
+      {/* まとめ→出力 の流れで分析を締めくくる */}
       <AICommentBox
         commentKey="overallStrategy"
         inputData={{
@@ -62,15 +61,10 @@ export default function ExportPage({ onBack }) {
         label="💡 総合戦略コメント（AIコメント - 報告書用エグゼクティブサマリー）"
       />
 
-      <div className="mt-6">
-        <ActionPlanSection />
-      </div>
-
-      <div className="card mb-6">
+      <div className="card mb-6 mt-6">
         <h2 className="section-title">出力</h2>
         <p className="text-sm text-gray-500 mb-6">
-          STP分析の結果を各種形式で出力します。用途に応じて出力形式を選択してください。
-          アクションプランを入力しておくと、レポートの最終章「実行計画」として出力されます。
+          分析の結果を各種形式で出力します。用途に応じて出力形式を選択してください。
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -95,7 +89,7 @@ export default function ExportPage({ onBack }) {
             <div className="text-3xl mb-3">📊</div>
             <h3 className="font-bold text-gray-800 mb-1">Excel</h3>
             <p className="text-xs text-gray-500 mb-3">
-              5シート構成（強み棚卸・セグメント・ターゲティング・ポジショニング・アクションプラン）。データの再加工用。
+              4シート構成（強み棚卸・セグメント・ターゲティング・ポジショニング）。データの再加工用。
             </p>
             <button
               onClick={() => handleExport('excel')}

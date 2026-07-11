@@ -120,7 +120,7 @@ function nextActions(project) {
       : '';
   }
 
-  a.export = 'アクションプランをまとめてレポートを出力しましょう';
+  a.export = '分析結果をレポートとして出力しましょう';
   return a;
 }
 
