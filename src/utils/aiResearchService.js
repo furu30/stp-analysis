@@ -1,6 +1,6 @@
 /**
  * AI企業リサーチサービス
- * 企業名と事業内容からSTP分析のドラフトを4フェーズで自動生成する。
+ * 企業名と事業内容からSTP分析のドラフトを3フェーズで自動生成する。
  */
 
 import {
@@ -328,34 +328,6 @@ ${posAxes.map((name, i) => `pa_${i}: ${name}`).join(', ')}
 }
 
 // ---------------------------------------------------------------------------
-// Phase 4: AIコメント
-// ---------------------------------------------------------------------------
-
-function buildPhase4Prompt(companyName, productService, dataSummary) {
-  return `## 対象企業
-企業名: ${companyName}
-事業内容: ${productService}
-
-## STP分析データの要約
-${dataSummary}
-
-## タスク
-上記のSTP分析結果に基づき、報告書用の総合戦略コメント（エグゼクティブサマリー）を生成してください。
-提案書向けのフォーマルなトーンで400〜600字で記述してください。
-
-## 出力JSON形式
-{
-  "overallStrategy": "【エグゼクティブサマリー】で始まる全体戦略。■強みの核心、■ターゲット戦略、■ポジショニング戦略、■今後の重点施策の4セクションで構成。"
-}
-
-## 制約
-- overallStrategyは【エグゼクティブサマリー】で開始し、■で始まる4セクションを含める
-- 具体的な企業名・セグメント名・競合名を引用して言及すること
-- 数値（スコア）を適宜引用して根拠を示すこと
-- JSONのみ出力。`;
-}
-
-// ---------------------------------------------------------------------------
 // ヘルパー: コンテキスト要約生成
 // ---------------------------------------------------------------------------
 
@@ -372,40 +344,6 @@ function summarizeSegments(step1) {
   }).join('\n');
 }
 
-function summarizeAllData(step0, step1, step2, step3) {
-  const top5 = summarizeTop5(step0?.top5);
-  const segs = summarizeSegments(step1);
-
-  const mainTargets = step2?.targets
-    ? Object.entries(step2.targets)
-        .filter(([, v]) => v.label === 'main')
-        .map(([k, v]) => `${k}: ${v.persona || ''}`)
-        .join(', ')
-    : '';
-
-  const competitors = step3?.competitors
-    ? step3.competitors.map(c => `${c.name}(${c.scale})`).join(', ')
-    : '';
-
-  const posAxes = step3?.axes
-    ? step3.axes.map(a => a.name).join(', ')
-    : '';
-
-  return `## 強み Top5
-${top5}
-
-## セグメント
-${segs}
-
-## メインターゲット
-${mainTargets || '（なし）'}
-
-## 競合企業
-${competitors || '（なし）'}
-
-## ポジショニング軸
-${posAxes || '（なし）'}`;
-}
 
 // ---------------------------------------------------------------------------
 // フェーズ定義
@@ -415,7 +353,6 @@ const PHASES = [
   { id: 1, name: '強み分析（バリューチェーン）', maxTokens: 8192 },
   { id: 2, name: 'セグメンテーション', maxTokens: 4096 },
   { id: 3, name: 'ターゲティング & ポジショニング', maxTokens: 8192 },
-  { id: 4, name: 'AIコメント生成', maxTokens: 4096 },
 ];
 
 export { PHASES };
@@ -437,9 +374,6 @@ async function runPhase(phaseId, context, aiSettings, signal) {
       break;
     case 3:
       prompt = buildPhase3Prompt(context.companyName, context.productService, context.marketType, summarizeTop5(context.top5), summarizeSegments(context.step1));
-      break;
-    case 4:
-      prompt = buildPhase4Prompt(context.companyName, context.productService, summarizeAllData(context.step0, context.step1, context.step2, context.step3));
       break;
     default:
       throw new Error(`不明なフェーズ: ${phaseId}`);
@@ -646,7 +580,7 @@ function normalizeStep2And3(raw) {
 // ---------------------------------------------------------------------------
 
 /**
- * 4フェーズで企業調査を実行
+ * 3フェーズで企業調査を実行
  * @param {string} companyName - 企業名
  * @param {string} productService - 事業内容
  * @param {string} marketType - 'btob' | 'btoc'
@@ -693,15 +627,6 @@ export async function runFullResearch(companyName, productService, marketType, a
   results.step2 = norm3.step2;
   results.step3 = norm3.step3;
   callbacks.onPhaseComplete(3, { step2: norm3.step2, step3: norm3.step3 });
-
-  // --- Phase 4: AIコメント ---
-  callbacks.onPhaseStart(4);
-  const raw4 = await runPhase(4, context, aiSettings, signal);
-  const aiComments = {
-    overallStrategy: raw4.overallStrategy || '',
-  };
-  results.aiComments = aiComments;
-  callbacks.onPhaseComplete(4, { aiComments });
 
   return results;
 }

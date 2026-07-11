@@ -3,7 +3,6 @@ import { useProject } from '../context/ProjectContext';
 import { exportToWord } from '../utils/exportWord';
 import { exportToHtmlReport } from '../utils/exportHtml';
 import { exportToExcel } from '../utils/exportExcel';
-import AICommentBox from '../components/AICommentBox';
 
 export default function ExportPage({ onBack }) {
   const { project } = useProject();
@@ -48,27 +47,7 @@ export default function ExportPage({ onBack }) {
         </div>
       )}
 
-      {/* まとめ→出力 の流れで分析を締めくくる */}
-      <AICommentBox
-        commentKey="overallStrategy"
-        inputData={{
-          settings: project.settings,
-          step0: project.step0,
-          step1: project.step1,
-          step2: project.step2,
-          step3: project.step3.skipped ? { skipped: true } : project.step3,
-          swot: project.swot?.skipped ? { skipped: true } : {
-            strengths: (project.swot?.strengths || []).filter(Boolean),
-            weaknesses: (project.swot?.weaknesses || []).filter(Boolean),
-            opportunities: (project.swot?.opportunities || []).filter(Boolean),
-            threats: (project.swot?.threats || []).filter(Boolean),
-            strategyOptions: (project.swot?.strategyOptions || []).filter(o => (o.text || '').trim()),
-          },
-        }}
-        label="💡 総合戦略コメント（AIコメント - 報告書用エグゼクティブサマリー）"
-      />
-
-      <div className="card mb-6 mt-6">
+      <div className="card mb-6">
         <h2 className="section-title">出力</h2>
         <p className="text-sm text-gray-500 mb-6">
           分析の結果を各種形式で出力します。用途に応じて出力形式を選択してください。

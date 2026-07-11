@@ -167,9 +167,6 @@ export function createInitialProject() {
       strategyOptions: [], // [{ id, type: 'so'|'st'|'wo'|'wt'|'', text, effect: '高'|'中'|'低'|'', feasibility: 同左 }]
       skipped: false,
     },
-    aiComments: {
-      overallStrategy: '', // 報告書用エグゼクティブサマリー（AIコメントはこの1本に集約）
-    },
     aiSettings: {
       provider: 'claude',
       apiKey: '',

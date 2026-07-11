@@ -1,8 +1,6 @@
 const SYSTEM_PROMPT = 'あなたは経営コンサルタントとして、製造業中小企業のSTP分析結果に基づいたマーケティング戦略コメントを生成します。';
 
-function buildPrompt(type, data, tone) {
-  const toneLabel = tone === 'formal' ? '提案書向け（丁寧・フォーマル）' : '社内確認向け（簡潔）';
-  const charGuide = tone === 'formal' ? '400〜600' : '200〜400';
+function buildPrompt(type, data) {
   const dataJson = JSON.stringify(data, null, 2);
 
   const instructions = {
@@ -18,10 +16,9 @@ function buildPrompt(type, data, tone) {
 ・effect（効果）とfeasibility（実現性）は 高 / 中 / 低 のいずれかで評価すること
 以下のJSON形式のみを出力。前置き・説明文は不要:
 {"options":[{"type":"so","text":"...","effect":"高","feasibility":"中"}]}`,
-    overallStrategy: `以下のSTP分析全データ（強み・セグメント・ターゲット・ポジショニング・SWOTと戦略オプション）に基づき、全体を通じた戦略的示唆を${toneLabel}のトーンで${charGuide}字程度のエグゼクティブサマリーとして生成してください。戦略オプションの評価（効果・実現性）を踏まえた優先順位の示唆も含めること。`,
   };
 
-  return `${instructions[type]}\n\nデータ:\n${dataJson}\n\n${type.includes('Generate') ? '' : 'コメントのみを出力。前置きや説明文は不要。'}`;
+  return `${instructions[type]}\n\nデータ:\n${dataJson}\n`;
 }
 
 /** API エラーを分かりやすいメッセージに変換 */
@@ -178,10 +175,10 @@ ${JSON.stringify(inputData, null, 2)}
 
 /** SWOTコメント生成をbuildPromptに追加 */
 export async function generateAIComment(type, inputData, aiSettings) {
-  const { provider, apiKey, model, tone } = aiSettings;
+  const { provider, apiKey, model } = aiSettings;
   if (!apiKey) throw new Error('APIキーが設定されていません。ヘッダーの「AI設定」ボタンからAPIキーを入力してください。');
 
-  const userPrompt = buildPrompt(type, inputData, tone);
+  const userPrompt = buildPrompt(type, inputData);
 
   switch (provider) {
     case 'claude':

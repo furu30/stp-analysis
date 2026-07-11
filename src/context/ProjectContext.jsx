@@ -33,7 +33,6 @@ function migrateProject(data) {
   if (!data.customization) {
     data.customization = { theme: 'light', brandColor: '#2563eb', logoUrl: '' };
   }
-  if (!data.aiComments) data.aiComments = {};
   return data;
 }
 
@@ -98,8 +97,6 @@ function projectReducer(state, action) {
       return { ...state, step3: { ...state.step3, ...action.payload } };
     case 'UPDATE_SWOT':
       return { ...state, swot: { ...state.swot, ...action.payload } };
-    case 'UPDATE_AI_COMMENTS':
-      return { ...state, aiComments: { ...state.aiComments, ...action.payload } };
     case 'UPDATE_AI_SETTINGS':
       return { ...state, aiSettings: { ...state.aiSettings, ...action.payload } };
     case 'UPDATE_CUSTOMIZATION':

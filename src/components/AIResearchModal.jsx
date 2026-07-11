@@ -4,7 +4,7 @@ import { PHASES, runFullResearch } from '../utils/aiResearchService';
 
 /**
  * AI企業リサーチ モーダル
- * 4フェーズでSTP分析ドラフトを自動生成し、プログレスを表示する。
+ * 3フェーズでSTP分析ドラフトを自動生成し、プログレスを表示する。
  */
 export default function AIResearchModal({ onClose, onComplete }) {
   const { project, dispatch } = useProject();
@@ -54,10 +54,6 @@ export default function AIResearchModal({ onClose, onComplete }) {
           const compCnt = result.step3.competitors?.length || 0;
           setPhaseSummaries(prev => ({ ...prev, 3: `メイン${mainCnt}セグメント、競合${compCnt}社を分析` }));
         }
-        break;
-      case 4:
-        dispatch({ type: 'UPDATE_AI_COMMENTS', payload: result.aiComments });
-        setPhaseSummaries(prev => ({ ...prev, 4: '4種類のコメントを生成' }));
         break;
     }
     setCompletedPhases(prev => [...prev, phaseId]);

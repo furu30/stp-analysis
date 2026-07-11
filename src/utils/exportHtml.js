@@ -1,5 +1,5 @@
 export function exportToHtmlReport(project) {
-  const { settings, step0, step1, step2, step3, swot, aiComments } = project;
+  const { settings, step0, step1, step2, step3, swot } = project;
 
   const companies = step3?.skipped ? [] : [{ id: 'self', name: settings.companyName || '自社' }, ...(step3?.competitors || [])];
 
@@ -132,7 +132,6 @@ export function exportToHtmlReport(project) {
     <li><a href="#sec3">3. ターゲティング</a></li>
     <li><a href="#sec4">4. ポジショニング</a></li>
     <li><a href="#sec5">5. SWOT分析</a></li>
-    ${aiComments?.overallStrategy ? '<li><a href="#sec6">6. 総合戦略サマリー</a></li>' : ''}
   </ol>
 </div>
 
@@ -226,11 +225,7 @@ ${buildScoreTable(step3, companies)}
 <h1 id="sec5">5. SWOT分析</h1>
 ${buildSwotSection(swot, step0)}
 
-${aiComments?.overallStrategy ? `
-<div class="print-break"></div>
-<h1 id="sec6">6. 総合戦略サマリー</h1>
-<div class="overview-box"><p>${escapeHtml(aiComments.overallStrategy)}</p></div>
-` : ''}
+
 
 
 

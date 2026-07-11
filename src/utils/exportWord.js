@@ -89,7 +89,7 @@ function weightLabel(weight) {
 }
 
 export async function exportToWord(project) {
-  const { settings, step0, step1, step2, step3, swot, aiComments } = project;
+  const { settings, step0, step1, step2, step3, swot } = project;
   const sections = [];
 
   // ===== タイトルページ =====
@@ -407,16 +407,6 @@ export async function exportToWord(project) {
     sections.push(para('SWOT分析はスキップされました。'));
   }
   sections.push(pageBreak());
-
-  // ===== 6. 総合戦略 =====
-  let secNo = 6;
-  if (aiComments?.overallStrategy) {
-    sections.push(
-      heading(`${secNo}. 総合戦略サマリー`),
-      ...multiLine(aiComments.overallStrategy),
-    );
-    secNo++;
-  }
 
   const doc = new Document({
     creator: '戦略コンパス',
