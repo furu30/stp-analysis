@@ -49,6 +49,31 @@ export default function Step0Strengths({ onNext, onSkip }) {
     dispatch({ type: 'UPDATE_STEP0', payload: { categories: newCats } });
   };
 
+  // カスタム項目のみ削除可能（標準項目は残す）。入力済みの場合は誤操作防止で確認する
+  const deleteCustomItem = (catId, item) => {
+    const hasInput = Boolean(
+      (item.name || '').trim() ||
+      (item.strength || '').trim() ||
+      (item.communication || '').trim()
+    );
+    if (hasInput) {
+      const label = (item.name || '').trim() || 'この項目';
+      if (!window.confirm(`「${label}」を削除します。入力した内容は元に戻せません。よろしいですか？`)) return;
+    }
+
+    const newCats = categories.map(cat => {
+      if (cat.id !== catId) return cat;
+      return { ...cat, items: cat.items.filter(i => i.id !== item.id) };
+    });
+
+    // Top強みに確定済みの場合は、そちらからも取り除いて順位を振り直す
+    const newTop5 = (step0.top5 || [])
+      .filter(t => t.id !== item.id)
+      .map((t, i) => ({ ...t, rank: i + 1 }));
+
+    dispatch({ type: 'UPDATE_STEP0', payload: { categories: newCats, top5: newTop5 } });
+  };
+
   const flaggedItems = categories.flatMap(cat =>
     cat.items.filter(i => i.isStrengthFlag).map(i => ({
       ...i,
@@ -231,6 +256,7 @@ export default function Step0Strengths({ onNext, onSkip }) {
                     <th className="text-left py-2 px-2">顧客への伝達</th>
                     <th className="text-center py-2 px-2 w-28">伝達状況</th>
                     <th className="text-center py-2 px-2 w-20">強み★</th>
+                    <th className="text-center py-2 px-2 w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,18 +317,35 @@ export default function Step0Strengths({ onNext, onSkip }) {
                           {item.isStrengthFlag ? '★' : '☆'}
                         </button>
                       </td>
+                      <td className="py-2 px-2 text-center">
+                        {item.isCustom && (
+                          <button
+                            onClick={() => deleteCustomItem(activeTab, item)}
+                            title="このカスタム項目を削除"
+                            aria-label="このカスタム項目を削除"
+                            className="text-sm text-gray-300 hover:text-red-500 cursor-pointer transition-colors"
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <button
-              onClick={() => addCustomItem(activeTab)}
-              className="btn-secondary btn-sm mt-3"
-            >
-              ＋ カスタム項目を追加
-            </button>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => addCustomItem(activeTab)}
+                className="btn-secondary btn-sm"
+              >
+                ＋ カスタム項目を追加
+              </button>
+              <span className="text-xs text-gray-400">
+                追加した項目は右端の 🗑 で削除できます
+              </span>
+            </div>
           </div>
         )}
       </div>
