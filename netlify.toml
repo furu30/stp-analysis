@@ -1,0 +1,16 @@
+# Netlify ビルド設定（GitHub連携）
+#
+# このリポジトリのルートが Vite プロジェクトのルート。
+# Netlify 管理画面の Base directory は空欄のままでよい。
+#
+# 設定を管理画面ではなくこのファイルに置くことで、
+# 「本番がどのコードから作られたか」が git の履歴で追えるようにする。
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 7 の要件（Node 20.19+ / 22.12+）を満たすLTSに固定する。
+  # 固定しないと Netlify 側の既定バージョン変更でビルドが壊れることがある。
+  NODE_VERSION = "22"

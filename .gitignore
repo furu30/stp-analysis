@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Netlify CLI のローカル状態（絶対パスを含むため共有しない）
+.netlify
