@@ -6,12 +6,12 @@ const FEATURES = [
   { icon: '🎯', title: 'ターゲティング', desc: '6軸スコアリングで最適市場を選定' },
   { icon: '📍', title: 'ポジショニング', desc: '競合マップで差別化を可視化' },
   { icon: '🔄', title: 'SWOT分析', desc: 'クロスSWOTで戦略オプションを導出・評価' },
-  { icon: '📄', title: '5形式出力', desc: 'Excel・Word・PPTX・PDF・HTML' },
+  { icon: '📄', title: '3形式出力', desc: 'Excel・Word・HTML（ブラウザ印刷でPDF化可）' },
 ];
 
 const STATS = [
   { value: '12', label: '業種テンプレート' },
-  { value: '5', label: '出力形式' },
+  { value: '3', label: '出力形式' },
   { value: '3', label: 'AI対応' },
   { value: '6', label: 'ステップ' },
 ];

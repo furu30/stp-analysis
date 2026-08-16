@@ -1,159 +1,148 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useProject } from '../context/ProjectContext';
-import { PHASES, runFullResearch } from '../utils/aiResearchService';
+import { PHASES, buildPhasePrompt, applyPhaseResult } from '../utils/aiResearchService';
+import { AI_CHAT_LINKS, buildRepairPrompt } from '../utils/aiPrompt';
 
 /**
- * AI企業リサーチ モーダル
- * 3フェーズでSTP分析ドラフトを自動生成し、プログレスを表示する。
+ * AI企業リサーチ モーダル（プロンプト配布方式・課題M-01）
+ *
+ * APIは叩かない。フェーズごとに ❶プロンプトをコピー → ❷AIに貼る → ❸回答を貼り戻す
+ * を繰り返す。取り込んだ時点でプロジェクトに反映されるため、途中で閉じても
+ * 次に開いたときに続きのフェーズから再開できる。
  */
 export default function AIResearchModal({ onClose, onComplete }) {
   const { project, dispatch } = useProject();
   const s = project.settings;
 
-  // 状態: 'input' | 'running' | 'done' | 'error'
+  // 'input'（企業情報の入力） | 'phase'（フェーズ実行中） | 'done'
   const [stage, setStage] = useState('input');
   const [companyName, setCompanyName] = useState(s.companyName || '');
   const [productService, setProductService] = useState(s.productService || '');
   const [businessDescription, setBusinessDescription] = useState(s.businessDescription || '');
   const [marketType, setMarketType] = useState(s.marketType || 'btob');
 
-  // プログレス
-  const [currentPhase, setCurrentPhase] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState(1);
   const [completedPhases, setCompletedPhases] = useState([]);
   const [phaseSummaries, setPhaseSummaries] = useState({});
-  const [startTime, setStartTime] = useState(null);
 
-  // エラー
-  const [errorMsg, setErrorMsg] = useState('');
-  const [errorPhase, setErrorPhase] = useState(0);
+  const [pasted, setPasted] = useState('');
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState('');
 
-  const abortRef = useRef(null);
-  const currentPhaseRef = useRef(0);
+  // 前フェーズの結果はプロジェクト本体から読む（＝閉じても再開できる）
+  const hasTop5 = (project.step0?.top5 || []).length > 0;
+  const hasSegments = (project.step1?.selectedAxes || []).length > 0;
+  const phaseReady = { 1: true, 2: hasTop5, 3: hasSegments };
 
-  // フェーズ完了時の dispatch
-  const handlePhaseComplete = useCallback((phaseId, result) => {
-    switch (phaseId) {
+  const prompt = useMemo(() => {
+    if (stage !== 'phase') return '';
+    try {
+      return buildPhasePrompt(currentPhase, {
+        companyName,
+        productService: [productService, businessDescription].filter(Boolean).join('\n'),
+        marketType,
+        top5: project.step0?.top5,
+        step1: project.step1,
+      });
+    } catch (e) {
+      return `プロンプトを組み立てられませんでした: ${e.message}`;
+    }
+  }, [stage, currentPhase, companyName, productService, businessDescription, marketType, project.step0, project.step1]);
+
+  const copy = async (text, key) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(''), 2000);
+    } catch {
+      setCopied('manual');
+    }
+  };
+
+  // 企業情報を確定してPhase 1へ
+  const startResearch = () => {
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { companyName, productService, businessDescription, marketType } });
+    setStage('phase');
+    setCurrentPhase(1);
+    setCompletedPhases([]);
+    setPhaseSummaries({});
+    setPasted('');
+    setError('');
+  };
+
+  // 貼り戻された回答を取り込む
+  const applyPasted = () => {
+    setError('');
+    let result;
+    try {
+      result = applyPhaseResult(currentPhase, pasted, { marketType, step1: project.step1 });
+    } catch (e) {
+      setError(e.message);
+      return;
+    }
+
+    switch (currentPhase) {
       case 1:
         dispatch({ type: 'UPDATE_SETTINGS', payload: { marketType: result.marketType } });
         dispatch({ type: 'UPDATE_STEP0', payload: result.step0 });
-        setPhaseSummaries(prev => ({ ...prev, 1: `Top5を含む${result.step0.categories.reduce((n, c) => n + c.items.filter(i => i.strength).length, 0)}項目を生成` }));
+        setPhaseSummaries(prev => ({
+          ...prev,
+          1: `Top5を含む${result.step0.categories.reduce((n, c) => n + c.items.filter(i => i.strength).length, 0)}項目を取り込み`,
+        }));
         break;
-      case 2:
+      case 2: {
         dispatch({ type: 'UPDATE_STEP1', payload: result.step1 });
-        {
-          const axCnt = result.step1.selectedAxes?.length || 0;
-          const segCnt = Object.values(result.step1.segments || {}).reduce((n, arr) => n + arr.length, 0);
-          setPhaseSummaries(prev => ({ ...prev, 2: `${axCnt}軸・${segCnt}セグメントを生成` }));
-        }
+        const axCnt = result.step1.selectedAxes?.length || 0;
+        const segCnt = Object.values(result.step1.segments || {}).reduce((n, arr) => n + arr.length, 0);
+        setPhaseSummaries(prev => ({ ...prev, 2: `${axCnt}軸・${segCnt}セグメントを取り込み` }));
         break;
-      case 3:
+      }
+      case 3: {
         dispatch({ type: 'UPDATE_STEP2', payload: result.step2 });
         dispatch({ type: 'UPDATE_STEP3', payload: result.step3 });
-        {
-          const mainCnt = Object.values(result.step2.targets || {}).filter(t => t.label === 'main').length;
-          const compCnt = result.step3.competitors?.length || 0;
-          setPhaseSummaries(prev => ({ ...prev, 3: `メイン${mainCnt}セグメント、競合${compCnt}社を分析` }));
-        }
+        const candCnt = result.step2.candidates?.length || 0;
+        const mainCnt = Object.values(result.step2.targets || {}).filter(t => t.label === 'main').length;
+        const compCnt = result.step3.competitors?.length || 0;
+        setPhaseSummaries(prev => ({ ...prev, 3: `ターゲット候補${candCnt}件（うちメイン${mainCnt}件）、競合${compCnt}社を取り込み` }));
         break;
-    }
-    setCompletedPhases(prev => [...prev, phaseId]);
-  }, [dispatch]);
-
-  // リサーチ実行
-  const startResearch = useCallback(async () => {
-    // 設定を即反映
-    dispatch({ type: 'UPDATE_SETTINGS', payload: { companyName, productService, businessDescription, marketType } });
-
-    setStage('running');
-    setCurrentPhase(0);
-    setCompletedPhases([]);
-    setPhaseSummaries({});
-    setStartTime(Date.now());
-    setErrorMsg('');
-    setErrorPhase(0);
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      // productService + businessDescription を結合してAIに渡す
-      const fullDescription = [productService, businessDescription].filter(Boolean).join('\n');
-      await runFullResearch(
-        companyName,
-        fullDescription,
-        marketType,
-        project.aiSettings,
-        {
-          onPhaseStart: (phaseId) => { currentPhaseRef.current = phaseId; setCurrentPhase(phaseId); },
-          onPhaseComplete: handlePhaseComplete,
-          onError: () => {},
-        },
-        controller.signal,
-      );
-      setStage('done');
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        // キャンセル: 部分結果は保持されている
-        setStage('input');
-        return;
       }
-      setErrorMsg(err.message);
-      setErrorPhase(currentPhaseRef.current);
-      setStage('error');
     }
-  }, [companyName, productService, marketType, project.aiSettings, dispatch, handlePhaseComplete]);
 
-  // キャンセル
-  const handleCancel = () => {
-    if (abortRef.current) abortRef.current.abort();
-    onClose();
+    setCompletedPhases(prev => (prev.includes(currentPhase) ? prev : [...prev, currentPhase]));
+    setPasted('');
+    if (currentPhase < PHASES.length) setCurrentPhase(currentPhase + 1);
+    else setStage('done');
   };
 
-  // 完了 → Step0に遷移
-  const handleComplete = () => {
-    onComplete?.();
-    onClose();
-  };
-
-  // 推定残り時間
-  const estimatedRemaining = () => {
-    if (!startTime || completedPhases.length === 0) return '';
-    const elapsed = Date.now() - startTime;
-    const avgPerPhase = elapsed / completedPhases.length;
-    const remaining = Math.round((avgPerPhase * (4 - completedPhases.length)) / 1000);
-    return remaining > 0 ? `約${remaining}秒` : 'まもなく完了';
-  };
-
-  // フェーズアイコン
   const phaseIcon = (id) => {
     if (completedPhases.includes(id)) return '✅';
-    if (currentPhase === id) return '⏳';
+    if (currentPhase === id && stage === 'phase') return '▶';
     return '○';
   };
 
+  const phase = PHASES.find(p => p.id === currentPhase);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => e.target === e.currentTarget && stage !== 'running' && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* ヘッダー */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <h2 className="text-lg font-bold text-gray-800">
             {stage === 'input' && '🔍 AI企業リサーチ'}
-            {stage === 'running' && '🔍 分析中...'}
+            {stage === 'phase' && `🔍 Phase ${currentPhase} / ${PHASES.length}：${phase?.name}`}
             {stage === 'done' && '✅ リサーチ完了'}
-            {stage === 'error' && '⚠️ エラー発生'}
           </h2>
-          {stage !== 'running' && (
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl cursor-pointer">✕</button>
-          )}
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl cursor-pointer">✕</button>
         </div>
 
-        {/* 本体 */}
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 overflow-y-auto">
           {/* --- 入力フォーム --- */}
           {stage === 'input' && (
             <>
               <p className="text-sm text-gray-500 mb-4">
-                企業名と事業内容をもとに、AIがSTP分析のドラフトを自動生成します。
+                企業名と事業内容をもとに、STP分析のドラフトを作るプロンプトを3回に分けて用意します。
+                お使いのAIに貼り付けて、返ってきた回答をこの画面に貼り戻してください。
+                <strong className="text-gray-700">APIキーは不要です。</strong>
               </p>
 
               <div className="space-y-4">
@@ -209,119 +198,118 @@ export default function AIResearchModal({ onClose, onComplete }) {
 
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-700">
-                  ⚠️ 既存のプロジェクトデータは上書きされます。重要なデータがある場合は先に保存してください。
+                  ⚠️ 取り込んだフェーズのデータは既存のプロジェクトデータを上書きします。重要なデータがある場合は先に保存してください。
                 </p>
               </div>
             </>
           )}
 
-          {/* --- プログレス表示 --- */}
-          {stage === 'running' && (
+          {/* --- フェーズ実行 --- */}
+          {stage === 'phase' && (
             <>
-              <p className="text-sm text-gray-600 mb-5">
-                「{companyName}」を分析しています...
-              </p>
-
-              <div className="space-y-3 mb-5">
-                {PHASES.map(phase => (
-                  <div key={phase.id} className="flex items-center gap-3">
-                    <span className="text-lg w-6 text-center">
-                      {phaseIcon(phase.id)}
-                    </span>
-                    <div className="flex-1">
-                      <span className={`text-sm font-medium ${
-                        completedPhases.includes(phase.id) ? 'text-green-700' :
-                        currentPhase === phase.id ? 'text-blue-700' : 'text-gray-400'
-                      }`}>
-                        Phase {phase.id}: {phase.name}
-                      </span>
-                      {completedPhases.includes(phase.id) && phaseSummaries[phase.id] && (
-                        <p className="text-xs text-green-600 mt-0.5">{phaseSummaries[phase.id]}</p>
-                      )}
-                    </div>
-                    {currentPhase === phase.id && (
-                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              {/* フェーズの進捗 */}
+              <div className="flex gap-2 mb-4">
+                {PHASES.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setCurrentPhase(p.id); setPasted(''); setError(''); }}
+                    disabled={!phaseReady[p.id]}
+                    title={phaseReady[p.id] ? '' : `Phase ${p.requires} の取り込みが先に必要です`}
+                    className={`flex-1 text-left px-3 py-2 rounded-lg border text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed
+                      ${currentPhase === p.id ? 'border-primary bg-primary-light' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
+                    <span className="font-bold">{phaseIcon(p.id)} Phase {p.id}</span>
+                    <span className="block text-gray-500 mt-0.5">{p.name}</span>
+                    {phaseSummaries[p.id] && (
+                      <span className="block text-green-600 mt-0.5">{phaseSummaries[p.id]}</span>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
 
-              {/* プログレスバー */}
-              <div className="mb-3">
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-500"
-                    style={{ width: `${(completedPhases.length / 4) * 100}%` }}
-                  />
+              <p className="text-sm text-gray-500 mb-4">{phase?.lead}</p>
+
+              {/* ❶ プロンプトをコピー */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-gray-700">❶ プロンプトをコピーする</h3>
+                  <button onClick={() => copy(prompt, 'prompt')} className="btn-accent btn-sm">
+                    {copied === 'prompt' ? '✓ コピーしました' : '📋 プロンプトをコピー'}
+                  </button>
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-400">{completedPhases.length} / 4 フェーズ完了</span>
-                  <span className="text-xs text-gray-400">{estimatedRemaining() && `残り ${estimatedRemaining()}`}</span>
+                {copied === 'manual' && (
+                  <p className="text-xs text-amber-700 mb-2">
+                    自動コピーできませんでした。下の枠の中を選択して手動でコピーしてください。
+                  </p>
+                )}
+                <textarea
+                  readOnly
+                  value={prompt}
+                  onFocus={e => e.target.select()}
+                  className="w-full h-28 text-[11px] font-mono border border-gray-200 rounded-lg p-2 bg-gray-50 text-gray-600"
+                />
+              </div>
+
+              {/* ❷ AIに貼る */}
+              <div className="mb-5">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">❷ お使いのAIに貼り付ける</h3>
+                <div className="flex flex-wrap gap-2">
+                  {AI_CHAT_LINKS.map(link => (
+                    <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                      {link.label}を開く ↗
+                    </a>
+                  ))}
                 </div>
               </div>
+
+              {/* ❸ 回答を貼り戻す */}
+              <div className="mb-4">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">❸ AIの回答をここに貼り付ける</h3>
+                <textarea
+                  value={pasted}
+                  onChange={e => { setPasted(e.target.value); setError(''); }}
+                  placeholder={'AIの回答をそのまま貼り付けてください。\n説明文が混ざっていても取り込めます。'}
+                  className="w-full h-28 text-xs border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+
+              {error && (
+                <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs text-red-700 mb-2">{error}</p>
+                  <button onClick={() => copy(buildRepairPrompt(pasted), 'repair')} className="btn-secondary btn-sm">
+                    {copied === 'repair' ? '✓ コピーしました' : '🔧 修正をお願いするプロンプトをコピー'}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
           {/* --- 完了 --- */}
           {stage === 'done' && (
             <>
-              <p className="text-sm text-gray-600 mb-5">
-                STP分析のドラフトが生成されました。
-              </p>
-
+              <p className="text-sm text-gray-600 mb-5">STP分析のドラフトが揃いました。</p>
               <div className="space-y-2 mb-5">
-                {PHASES.map(phase => (
-                  <div key={phase.id} className="flex items-center gap-3 p-2 bg-green-50 rounded-lg">
+                {PHASES.map(p => (
+                  <div key={p.id} className="flex items-center gap-3 p-2 bg-green-50 rounded-lg">
                     <span className="text-lg">✅</span>
                     <div>
-                      <span className="text-sm font-medium text-green-800">
-                        Phase {phase.id}: {phase.name}
-                      </span>
-                      {phaseSummaries[phase.id] && (
-                        <p className="text-xs text-green-600">{phaseSummaries[phase.id]}</p>
-                      )}
+                      <span className="text-sm font-medium text-green-800">Phase {p.id}: {p.name}</span>
+                      {phaseSummaries[p.id] && <p className="text-xs text-green-600">{phaseSummaries[p.id]}</p>}
                     </div>
                   </div>
                 ))}
               </div>
-
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-700">
-                  💡 生成されたデータはドラフトです。各ステップで内容を確認・修正してください。
+                  💡 取り込んだデータはドラフトです。各ステップで内容を確認・修正してください。
                 </p>
               </div>
-            </>
-          )}
-
-          {/* --- エラー --- */}
-          {stage === 'error' && (
-            <>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
-                <p className="text-sm text-red-700 font-medium mb-1">
-                  Phase {errorPhase} でエラーが発生しました
-                </p>
-                <p className="text-xs text-red-600">{errorMsg}</p>
-              </div>
-
-              {completedPhases.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs text-gray-500 mb-2">完了済みフェーズのデータは保持されています:</p>
-                  {completedPhases.map(id => {
-                    const phase = PHASES.find(p => p.id === id);
-                    return (
-                      <div key={id} className="flex items-center gap-2 text-xs text-green-600 mb-1">
-                        <span>✅</span> Phase {id}: {phase?.name}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </>
           )}
         </div>
 
         {/* フッター */}
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 shrink-0">
           {stage === 'input' && (
             <>
               <button onClick={onClose} className="btn-secondary">キャンセル</button>
@@ -330,27 +318,22 @@ export default function AIResearchModal({ onClose, onComplete }) {
                 disabled={!companyName.trim() || (!productService.trim() && !businessDescription.trim())}
                 className="btn-primary"
               >
-                🔍 リサーチ開始
+                🔍 プロンプトを作る →
               </button>
             </>
           )}
-          {stage === 'running' && (
-            <button onClick={handleCancel} className="btn-secondary">
-              中止
-            </button>
+          {stage === 'phase' && (
+            <>
+              <button onClick={onClose} className="btn-secondary">中断して閉じる</button>
+              <button onClick={applyPasted} disabled={!pasted.trim()} className="btn-primary disabled:opacity-40">
+                取り込む{currentPhase < PHASES.length ? ` → Phase ${currentPhase + 1}へ` : ''}
+              </button>
+            </>
           )}
           {stage === 'done' && (
-            <button onClick={handleComplete} className="btn-primary">
+            <button onClick={() => { onComplete?.(); onClose(); }} className="btn-primary">
               分析を開始する →
             </button>
-          )}
-          {stage === 'error' && (
-            <>
-              <button onClick={onClose} className="btn-secondary">閉じる</button>
-              <button onClick={startResearch} className="btn-primary">
-                🔄 再試行
-              </button>
-            </>
           )}
         </div>
       </div>

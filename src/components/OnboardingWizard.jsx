@@ -28,8 +28,8 @@ const STEPS = [
   {
     title: '出力: プロフェッショナルな提案書',
     icon: '📄',
-    content: 'Excel・Word・PowerPoint・HTML/PDFの4形式で出力可能。AI生成コメント付きの提案書をワンクリックで作成できます。',
-    tip: 'AI設定でAPIキーを登録すると、各ステップでAIコメントを生成できます',
+    content: 'Excel・Word・HTMLの3形式で出力可能。HTMLはブラウザの「印刷→PDFとして保存」でPDF化できます。',
+    tip: 'AIの活用にAPIキーは不要です。プロンプトをコピーしてお使いのAIに貼り、回答を貼り戻すだけです',
   },
 ];
 

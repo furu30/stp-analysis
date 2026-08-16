@@ -48,12 +48,13 @@ export default function DisclaimerModal({ onAgree }) {
             </div>
           </div>
           <div className="flex gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <span className="text-xl shrink-0">🔑</span>
+            <span className="text-xl shrink-0">📋</span>
             <div>
-              <p className="text-sm font-bold text-gray-800">AI機能はご自身のAPIキーで動作します</p>
+              <p className="text-sm font-bold text-gray-800">AI機能はプロンプトのコピー＆貼り戻しで動作します</p>
               <p className="text-xs text-gray-600 mt-1">
-                APIキーは利用者ご自身で取得・管理いただき、API利用料は利用者のご負担となります。
-                キーはブラウザのメモリ内でのみ使用され、保存ファイルには含まれません。
+                本アプリが外部のAIサービスへデータを送信することはありません。
+                プロンプトをどのAIに貼り付けるかは利用者ご自身の判断となり、
+                貼り付け先のサービスの利用規約・データ取扱いは利用者ご自身でご確認ください。
               </p>
             </div>
           </div>

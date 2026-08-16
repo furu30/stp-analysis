@@ -472,7 +472,7 @@ export function createDemoProject() {
       axes: [
         { id: 'ta1', name: '市場規模', description: 'そのセグメントの顧客数・売上ポテンシャルはどれくらいか', weight: 'medium', sixR: 'Realistic Scale' },
         { id: 'ta2', name: '成長性', description: '今後3〜5年でそのセグメントは拡大するか', weight: 'high', sixR: 'Rate of Growth' },
-        { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強く市場参入が難しいか（逆スコア：弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
+        { id: 'ta3', name: '競合の少なさ／参入余地', description: '既存プレーヤーが少なく参入余地が大きいか（競合が弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
         { id: 'ta4', name: '自社適合性', description: '自社の強み・リソース・既存顧客との親和性はどれくらいか', weight: 'high', sixR: 'Rank' },
         { id: 'ta5', name: '到達可能性', description: 'そのセグメントに対して効果的にアプローチできるか（営業・販路・コスト面）', weight: 'medium', sixR: 'Reach' },
         { id: 'ta6', name: '収益性', description: '価格転嫁のしやすさ・粗利率など収益を確保しやすいか', weight: 'high', sixR: 'Response' },
@@ -614,14 +614,6 @@ export function createDemoProject() {
         },
       ],
       skipped: false,
-    },
-
-
-    aiSettings: {
-      provider: 'claude',
-      apiKey: '',
-      model: 'claude-sonnet-4-6',
-      tone: 'formal',
     },
   };
 }
@@ -1081,7 +1073,7 @@ export function createDemoProjectFuji() {
       axes: [
         { id: 'ta1', name: '市場規模', description: 'そのセグメントの案件数・売上ポテンシャル', weight: 'medium', sixR: 'Realistic Scale' },
         { id: 'ta2', name: '成長性', description: '今後3〜5年の市場拡大見込み', weight: 'high', sixR: 'Rate of Growth' },
-        { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強いか（弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
+        { id: 'ta3', name: '競合の少なさ／参入余地', description: '既存プレーヤーが少なく参入余地が大きいか（競合が弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
         { id: 'ta4', name: '自社適合性', description: '自社の強み・技術との親和性', weight: 'high', sixR: 'Rank' },
         { id: 'ta5', name: '到達可能性', description: '営業・ネットワークでアプローチできるか', weight: 'medium', sixR: 'Reach' },
         { id: 'ta6', name: '収益性', description: '粗利率・価格転嫁のしやすさ', weight: 'high', sixR: 'Response' },
@@ -1221,14 +1213,6 @@ export function createDemoProjectFuji() {
         },
       ],
       skipped: false,
-    },
-
-
-    aiSettings: {
-      provider: 'claude',
-      apiKey: '',
-      model: 'claude-sonnet-4-6',
-      tone: 'formal',
     },
   };
 }
@@ -1614,7 +1598,7 @@ export function createDemoProjectBakery() {
       axes: [
         { id: 'ta1', name: '市場規模', description: 'そのセグメントの顧客数・売上ポテンシャル', weight: 'medium', sixR: 'Realistic Scale' },
         { id: 'ta2', name: '成長性', description: '今後3〜5年でそのセグメントは拡大するか', weight: 'high', sixR: 'Rate of Growth' },
-        { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強いか（弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
+        { id: 'ta3', name: '競合の少なさ／参入余地', description: '既存プレーヤーが少なく参入余地が大きいか（競合が弱いほど高評価）', weight: 'medium', sixR: 'Rival' },
         { id: 'ta4', name: '自社適合性', description: '自社の強み・リソースとの親和性', weight: 'high', sixR: 'Rank' },
         { id: 'ta5', name: '到達可能性', description: 'そのセグメントに効果的にアプローチできるか', weight: 'medium', sixR: 'Reach' },
         { id: 'ta6', name: '収益性', description: '客単価・粗利率など収益を確保しやすいか', weight: 'high', sixR: 'Response' },
@@ -1756,14 +1740,6 @@ export function createDemoProjectBakery() {
         },
       ],
       skipped: false,
-    },
-
-
-    aiSettings: {
-      provider: 'claude',
-      apiKey: '',
-      model: 'claude-sonnet-4-6',
-      tone: 'formal',
     },
   };
 }

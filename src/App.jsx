@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ProjectProvider, useProject } from './context/ProjectContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import StepNavigation from './components/StepNavigation';
-import AISettingsModal from './components/AISettingsModal';
+import SettingsModal from './components/SettingsModal';
 import ProjectListModal from './components/ProjectListModal';
 import OnboardingWizard from './components/OnboardingWizard';
 import LandingPage from './components/LandingPage';
@@ -18,7 +19,7 @@ import TutorialPage from './steps/TutorialPage';
 
 function AppContent() {
   const [currentStep, setCurrentStep] = useState('settings');
-  const [showAISettings, setShowAISettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showProjectList, setShowProjectList] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLanding, setShowLanding] = useState(() => {
@@ -50,13 +51,11 @@ function AppContent() {
   };
 
   const handleReset = useCallback(() => {
-    const savedAISettings = { ...project.aiSettings };
     const savedCustomization = { ...project.customization };
     dispatch({ type: 'RESET' });
-    dispatch({ type: 'UPDATE_AI_SETTINGS', payload: savedAISettings });
     if (savedCustomization) dispatch({ type: 'UPDATE_CUSTOMIZATION', payload: savedCustomization });
     setCurrentStep('settings');
-  }, [project.aiSettings, project.customization, dispatch]);
+  }, [project.customization, dispatch]);
 
   // ダークモード適用
   const theme = project.customization?.theme || 'light';
@@ -76,7 +75,7 @@ function AppContent() {
   return (
     <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : ''}`}>
       <Header
-        onOpenAISettings={() => setShowAISettings(true)}
+        onOpenSettings={() => setShowSettings(true)}
         onOpenTutorial={() => goTo('tutorial')}
         onReset={handleReset}
         onOpenProjectList={() => setShowProjectList(true)}
@@ -138,7 +137,7 @@ function AppContent() {
       </main>
 
       {showDisclaimer && <DisclaimerModal onAgree={() => setShowDisclaimer(false)} />}
-      {showAISettings && <AISettingsModal onClose={() => setShowAISettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showProjectList && (
         <ProjectListModal
           onClose={() => setShowProjectList(false)}
@@ -158,7 +157,10 @@ function AppContent() {
 export default function App() {
   return (
     <ProjectProvider>
-      <AppContent />
+      {/* 課題C-01: 描画中の例外で白画面になり、壊れたstateが自動保存されて復帰不能になるのを防ぐ */}
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
     </ProjectProvider>
   );
 }

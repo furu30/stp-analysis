@@ -76,7 +76,9 @@ export default function CustomizationPanel() {
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-400 mt-2">出力物（Word, PPTX, PDF）のアクセントカラーに使用されます</p>
+        <p className="text-xs text-amber-600 mt-2">
+          ⚠️ 現在この色は出力ファイルには反映されません（対応予定）。設定は保存されます。
+        </p>
       </div>
 
       {/* ロゴURL */}
@@ -89,7 +91,9 @@ export default function CustomizationPanel() {
           onChange={(e) => update({ logoUrl: e.target.value })}
           placeholder="https://example.com/logo.png"
         />
-        <p className="text-xs text-gray-400 mt-1">出力物のヘッダーにロゴを表示します。URL形式で指定してください。</p>
+        <p className="text-xs text-amber-600 mt-1">
+          ⚠️ 現在このロゴは出力ファイルには反映されません（対応予定）。設定は保存されます。
+        </p>
         {c.logoUrl && (
           <div className="mt-2 flex items-center gap-2">
             <img src={c.logoUrl} alt="ロゴプレビュー" className="h-8 object-contain" onError={(e) => e.target.style.display = 'none'} />

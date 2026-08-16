@@ -15,41 +15,41 @@ function calcProgress(project) {
   const p = {};
 
   // settings
-  const s = project.settings;
+  const s = project.settings ?? {};
   const settingsFields = [s.projectName, s.companyName, s.productService].filter(Boolean).length;
   p.settings = Math.round((settingsFields / 3) * 100);
 
   // step0
-  const flagged = project.step0.categories.flatMap(c => c.items.filter(i => i.isStrengthFlag)).length;
-  const top5 = (project.step0.top5 || []).length;
-  if (project.step0.skipped) {
+  const flagged = (project.step0?.categories ?? []).flatMap(c => (c.items ?? []).filter(i => i.isStrengthFlag)).length;
+  const top5 = (project.step0?.top5 ?? []).length;
+  if (project.step0?.skipped) {
     p.step0 = 100;
   } else {
     p.step0 = Math.round(((Math.min(flagged, 5) / 5) * 50 + (Math.min(top5, 5) / 5) * 50));
   }
 
   // step1
-  const axes = project.step1.selectedAxes.length;
-  const segs = Object.values(project.step1.segments).flatMap(s => s).filter(s => s.name).length;
+  const axes = (project.step1?.selectedAxes ?? []).length;
+  const segs = Object.values(project.step1?.segments ?? {}).flatMap(s => s ?? []).filter(s => s?.name).length;
   p.step1 = axes === 0 ? 0 : Math.round(((Math.min(axes, 3) / 3) * 40 + (Math.min(segs, 6) / 6) * 60));
 
   // step2（新candidates構造対応）
-  const candidates = (project.step2.candidates || []).length;
-  const scoreCount = Object.keys(project.step2.scores || {}).length;
-  const targetCount = Object.values(project.step2.targets || {}).filter(t => t?.label === 'main' || t?.label === 'sub').length;
-  const expectedScores = candidates * (project.step2.axes || []).length;
+  const candidates = (project.step2?.candidates ?? []).length;
+  const scoreCount = Object.keys(project.step2?.scores ?? {}).length;
+  const targetCount = Object.values(project.step2?.targets ?? {}).filter(t => t?.label === 'main' || t?.label === 'sub').length;
+  const expectedScores = candidates * (project.step2?.axes ?? []).length;
   const candidatePct = candidates > 0 ? 30 : 0;
   const scorePct = expectedScores === 0 ? 0 : Math.min(scoreCount / expectedScores, 1) * 40;
   const targetPct = candidates === 0 ? 0 : Math.min(targetCount / candidates, 1) * 30;
   p.step2 = Math.round(candidatePct + scorePct + targetPct);
 
   // step3
-  if (project.step3.skipped) {
+  if (project.step3?.skipped) {
     p.step3 = -1; // skipped
   } else {
-    const comps = project.step3.competitors.length;
-    const posAxes = project.step3.axes.length;
-    const posScores = Object.keys(project.step3.scores).length;
+    const comps = (project.step3?.competitors ?? []).length;
+    const posAxes = (project.step3?.axes ?? []).length;
+    const posScores = Object.keys(project.step3?.scores ?? {}).length;
     const expectedPosScores = (comps + 1) * posAxes; // +1 for self
     const posPct = expectedPosScores === 0 ? 0 : Math.min(posScores / expectedPosScores, 1);
     p.step3 = Math.round(((comps > 0 ? 30 : 0) + posPct * 70));
@@ -78,8 +78,8 @@ function nextActions(project) {
     : !s.companyName ? '自社名を入力するとマップやレポートに反映されます'
     : '';
 
-  const flagged = project.step0.categories.flatMap(c => c.items.filter(i => i.isStrengthFlag)).length;
-  const top5 = (project.step0.top5 || []).length;
+  const flagged = (project.step0?.categories ?? []).flatMap(c => (c.items ?? []).filter(i => i.isStrengthFlag)).length;
+  const top5 = (project.step0?.top5 ?? []).length;
   a.step0 = project.step0.skipped ? ''
     : flagged < 5 ? `強みに★を付けましょう（あと${5 - flagged}個）`
     : top5 < 5 ? '「強みを整理する」からTop強み（5〜7件）を確定しましょう'
@@ -99,7 +99,7 @@ function nextActions(project) {
     : targetCount === 0 ? 'メイン／サブターゲットを選定しましょう'
     : '';
 
-  if (project.step3.skipped) {
+  if (project.step3?.skipped) {
     a.step3 = '';
   } else {
     const comps = project.step3.competitors.length;

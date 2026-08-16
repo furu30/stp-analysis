@@ -11,104 +11,22 @@ import {
   DEFAULT_POSITIONING_AXES_BTOB,
   DEFAULT_POSITIONING_AXES_BTOC,
 } from '../data/defaultData';
+import { parseAIJson } from './aiPrompt';
 
 // ---------------------------------------------------------------------------
-// AI プロバイダー呼び出し（aiService.js と独立実装、max_tokens 可変）
+// プロンプト配布方式（課題M-01）
+// APIは叩かない。プロンプトを組み立て、ユーザーが貼り戻した回答を正規化するだけ。
 // ---------------------------------------------------------------------------
 
-async function callClaude(apiKey, model, systemPrompt, userPrompt, maxTokens, signal) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] }),
-  });
-  if (resp.status === 401 || resp.status === 403) throw new Error('AUTH_ERROR');
-  if (resp.status === 404) throw new Error(`MODEL_NOT_FOUND:モデル「${model}」が見つかりません。AI設定で別のモデルを選択してください。`);
-  if (!resp.ok) throw new Error(`API_ERROR:${resp.status}`);
-  const data = await resp.json();
-  // thinkingブロックが先頭に来る場合があるため、textブロックを探して返す
-  const textBlock = (data.content || []).find(b => b.type === 'text' && b.text);
-  if (!textBlock) throw new Error('API_ERROR:予期しない応答形式');
-  return textBlock.text;
-}
-
-async function callOpenAI(apiKey, model, systemPrompt, userPrompt, maxTokens, signal) {
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    signal,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }] }),
-  });
-  if (resp.status === 401 || resp.status === 403) throw new Error('AUTH_ERROR');
-  if (resp.status === 404) throw new Error(`MODEL_NOT_FOUND:モデル「${model}」が見つかりません。AI設定で別のモデルを選択してください。`);
-  if (!resp.ok) throw new Error(`API_ERROR:${resp.status}`);
-  const data = await resp.json();
-  return data.choices[0].message.content;
-}
-
-async function callGemini(apiKey, model, systemPrompt, userPrompt, maxTokens, signal) {
-  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    signal,
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
-    }),
-  });
-  if (resp.status === 401 || resp.status === 403) throw new Error('AUTH_ERROR');
-  if (resp.status === 404) throw new Error(`MODEL_NOT_FOUND:モデル「${model}」が見つかりません。AI設定で別のモデルを選択してください。`);
-  if (!resp.ok) throw new Error(`API_ERROR:${resp.status}`);
-  const data = await resp.json();
-  return data.candidates[0].content.parts[0].text;
-}
-
-function callAI(aiSettings, systemPrompt, userPrompt, maxTokens, signal) {
-  const { provider, apiKey, model } = aiSettings;
-  switch (provider) {
-    case 'claude':  return callClaude(apiKey, model, systemPrompt, userPrompt, maxTokens, signal);
-    case 'openai':  return callOpenAI(apiKey, model, systemPrompt, userPrompt, maxTokens, signal);
-    case 'gemini':  return callGemini(apiKey, model, systemPrompt, userPrompt, maxTokens, signal);
-    default: throw new Error(`未対応のプロバイダー: ${provider}`);
-  }
-}
-
 // ---------------------------------------------------------------------------
-// JSON パース
+// 共通の役割指定
+// チャットに貼り付ける方式ではsystemロールが使えないため、プロンプト本文の先頭に置く
 // ---------------------------------------------------------------------------
 
-function parseAIJSON(rawText) {
-  let cleaned = rawText.trim();
-  // コードフェンス除去
-  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-  cleaned = cleaned.trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // 最外側の { } を抽出
-    const m = cleaned.match(/(\{[\s\S]*\})/);
-    if (m) {
-      try { return JSON.parse(m[1]); } catch { /* fall through */ }
-    }
-    throw new Error('JSON_PARSE_ERROR');
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 共通システムプロンプト
-// ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `あなたは経営コンサルタント兼マーケティング戦略の専門家です。
+const ROLE_PROMPT = `あなたは経営コンサルタント兼マーケティング戦略の専門家です。
 企業のSTP（セグメンテーション・ターゲティング・ポジショニング）分析を行います。
-指定されたJSON形式のみを出力してください。
-マークダウンのコードブロックや説明文は含めず、純粋なJSONのみを出力してください。
+指定されたJSON形式のみを出力してください。説明文や前置きは不要です。
+（\`\`\`json のコードブロックで囲むのは構いません）
 日本語で分析してください。`;
 
 // ---------------------------------------------------------------------------
@@ -251,16 +169,18 @@ ${top5Summary}
 ${segmentsInfo}
 
 ## タスク
-### Part A: ターゲティング評価（step2）
-各セグメントを6つの評価軸で1〜5点で評価し、メイン/サブ/対象外に分類してください。
-メインターゲットは2〜3個、サブターゲットは3〜5個が目安です。
+### Part A: ターゲット候補の作成と評価（step2）
+まず、セグメント一覧から**軸をまたいで掛け合わせ**、ターゲット候補を4〜5個つくってください。
+候補とは「顧客の業界 × 製品の特性 × ロットサイズ」のように、複数の軸からセグメントを1つずつ選んだ組み合わせです。
+次に、各候補を6つの評価軸で1〜5点で評価し、メイン/サブ/対象外に分類してください。
+メインは1〜2個、サブは2〜3個が目安です。
 
 ### Part B: ポジショニング分析（step3）
 3〜5社の競合企業を特定し、6つのポジショニング軸で自社と競合を1〜10点で評価。
 3つのポジショニングマップを設計してください。
 
 ## ターゲティング評価軸（固定）
-ta1:市場規模, ta2:成長性, ta3:競合の強さ(弱い=高評価), ta4:自社適合性, ta5:到達可能性, ta6:収益性
+ta1:市場規模, ta2:成長性, ta3:競合の少なさ／参入余地(競合が弱いほど高評価), ta4:自社適合性, ta5:到達可能性, ta6:収益性
 
 ## ポジショニング軸のデフォルト
 ${posAxes.map((name, i) => `pa_${i}: ${name}`).join(', ')}
@@ -272,14 +192,25 @@ ${posAxes.map((name, i) => `pa_${i}: ${name}`).join(', ')}
     "axes": [
       { "id": "ta1", "name": "市場規模", "description": "そのセグメントの顧客数・売上ポテンシャル", "weight": "high|medium|low" }
     ],
+    "candidates": [
+      {
+        "id": "tc_1",
+        "name": "候補名（掛け合わせが分かる短い名前）",
+        "segments": [
+          { "axisId": "b2b_1", "segName": "セグメント一覧にある名前と完全一致させる" },
+          { "axisId": "b2b_2", "segName": "同上" }
+        ],
+        "memo": "この候補の特徴・狙う理由（30-80字）"
+      }
+    ],
     "scores": {
-      "seg_001_ta1": 3,
-      "seg_001_ta2": 4
+      "tc_1_ta1": 3,
+      "tc_1_ta2": 4
     },
     "targets": {
-      "seg_001": { "label": "main", "persona": "ペルソナ名（複合セグメント名）", "reason": "選定理由（50-100字）" },
-      "seg_002": { "label": "sub" },
-      "seg_003": { "label": "none" }
+      "tc_1": { "label": "main", "persona": "ペルソナ名", "reason": "選定理由（50-100字）" },
+      "tc_2": { "label": "sub" },
+      "tc_3": { "label": "none" }
     }
   },
   "step3": {
@@ -316,8 +247,11 @@ ${posAxes.map((name, i) => `pa_${i}: ${name}`).join(', ')}
 
 ## 制約
 - step2.axesは6個固定（ta1〜ta6）、weightはhigh2個,medium2個,low2個を目安
-- step2.scoresは全セグメント×6軸分のキーが必要（形式: seg_XXX_ta1）
-- step2.targetsは全セグメント分のキーが必要
+- step2.candidatesは4〜5個、idは tc_1 から連番
+- 各候補のsegmentsは2〜4軸ぶん。axisIdは「セグメント一覧」に出てくる軸のid、segNameはその軸に属するセグメント名と完全一致させる
+- 同じ軸から2つ以上のセグメントを1つの候補に入れないこと
+- step2.scoresは全候補×6軸分のキーが必要（形式: tc_1_ta1）
+- step2.targetsは全候補分のキーが必要
 - mainターゲットにはpersonaとreasonを付与。sub/noneはlabelのみでOK
 - step3.competitorsは3〜5社、idはcomp_1から連番
 - step3.axesは6個、idはpa_0〜pa_5
@@ -349,68 +283,91 @@ function summarizeSegments(step1) {
 // フェーズ定義
 // ---------------------------------------------------------------------------
 
-const PHASES = [
-  { id: 1, name: '強み分析（バリューチェーン）', maxTokens: 8192 },
-  { id: 2, name: 'セグメンテーション', maxTokens: 4096 },
-  { id: 3, name: 'ターゲティング & ポジショニング', maxTokens: 8192 },
+export const PHASES = [
+  {
+    id: 1,
+    name: '強み分析（バリューチェーン）',
+    lead: 'バリューチェーンの各工程から強みを洗い出し、Top5を選定してもらいます。',
+    requires: null,
+  },
+  {
+    id: 2,
+    name: 'セグメンテーション',
+    lead: 'Phase 1 で選ばれたTop5の強みを踏まえて、市場の切り口とセグメントを出してもらいます。',
+    requires: 1,
+  },
+  {
+    id: 3,
+    name: 'ターゲティング & ポジショニング',
+    lead: 'Phase 2 のセグメントを踏まえて、6R評価・ターゲット選定・競合比較まで出してもらいます。',
+    requires: 2,
+  },
 ];
 
-export { PHASES };
-
 // ---------------------------------------------------------------------------
-// 単一フェーズ実行（リトライ付き）
+// フェーズごとのプロンプト組み立て
+//
+// 各フェーズのプロンプトは自己完結している（前フェーズの結果はアプリ側が要約して
+// 埋め込む）。そのためユーザーは同じチャットを開き続ける必要がなく、途中で閉じても
+// プロジェクトに取り込み済みのデータから続きを再開できる。
 // ---------------------------------------------------------------------------
 
-async function runPhase(phaseId, context, aiSettings, signal) {
-  const phase = PHASES.find(p => p.id === phaseId);
-  let prompt;
-
+/**
+ * @param {number} phaseId - 1 | 2 | 3
+ * @param {object} context - { companyName, productService, marketType, top5, step1 }
+ * @returns {string} AIチャットに貼り付けるプロンプト
+ */
+export function buildPhasePrompt(phaseId, context) {
+  const { companyName, productService, marketType } = context;
+  let body;
   switch (phaseId) {
     case 1:
-      prompt = buildPhase1Prompt(context.companyName, context.productService, context.marketType);
+      body = buildPhase1Prompt(companyName, productService, marketType);
       break;
     case 2:
-      prompt = buildPhase2Prompt(context.companyName, context.productService, context.marketType, summarizeTop5(context.top5));
+      body = buildPhase2Prompt(companyName, productService, marketType, summarizeTop5(context.top5));
       break;
     case 3:
-      prompt = buildPhase3Prompt(context.companyName, context.productService, context.marketType, summarizeTop5(context.top5), summarizeSegments(context.step1));
+      body = buildPhase3Prompt(
+        companyName, productService, marketType,
+        summarizeTop5(context.top5), summarizeSegments(context.step1),
+      );
       break;
     default:
       throw new Error(`不明なフェーズ: ${phaseId}`);
   }
-
-  const MAX_RETRIES = 2;
-  let lastError;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const retryHint = attempt > 0 ? '\n\n【重要】前回の出力はJSON解析に失敗しました。正しいJSON形式のみを出力してください。コードブロック(```)は使わないでください。' : '';
-      const rawText = await callAI(aiSettings, SYSTEM_PROMPT, prompt + retryHint, phase.maxTokens, signal);
-      const result = parseAIJSON(rawText);
-      return result;
-    } catch (err) {
-      if (err.message === 'AUTH_ERROR') {
-        throw new Error('APIキーが無効です。AI設定を確認してください。');
-      }
-      if (err.message.startsWith('MODEL_NOT_FOUND:')) {
-        throw new Error(err.message.replace('MODEL_NOT_FOUND:', ''));
-      }
-      if (err.name === 'AbortError') throw err;
-
-      lastError = err;
-
-      if (err.message.startsWith('API_ERROR:') && attempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 2000)); // 2秒待機してリトライ
-        continue;
-      }
-      if (err.message === 'JSON_PARSE_ERROR' && attempt < MAX_RETRIES) {
-        continue; // リトライヒント付きで再試行
-      }
-    }
-  }
-
-  throw new Error(`Phase ${phaseId}（${phase.name}）の生成に失敗しました: ${lastError?.message || '不明なエラー'}`);
+  return `${ROLE_PROMPT}\n\n${body}`;
 }
+
+/**
+ * 貼り戻された回答を、そのフェーズの dispatch 用データに変換する。
+ * JSONが読めない場合は日本語のエラーを投げる（呼び出し側が画面に出す）。
+ *
+ * @param {number} phaseId - 1 | 2 | 3
+ * @param {string} rawText - ユーザーが貼り付けたAIの回答
+ * @param {object} context - { marketType, step1 }
+ * @returns {object} フェーズごとの正規化済みデータ
+ */
+export function applyPhaseResult(phaseId, rawText, context) {
+  const raw = parseAIJson(rawText);
+  const marketType = context?.marketType;
+  switch (phaseId) {
+    case 1: {
+      const norm = normalizeStep0(raw, marketType);
+      return { step0: norm.step0, marketType: norm.marketType };
+    }
+    case 2:
+      return { step1: normalizeStep1(raw, marketType) };
+    case 3: {
+      // step1 は候補の軸名を解決するために渡す（課題P-13）
+      const norm = normalizeStep2And3(raw, context?.step1);
+      return { step2: norm.step2, step3: norm.step3 };
+    }
+    default:
+      throw new Error(`不明なフェーズ: ${phaseId}`);
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // Phase 1 後処理: step0 構造の正規化
@@ -522,23 +479,64 @@ function normalizeStep1(raw, marketType) {
 // Phase 3 後処理: step2 + step3 構造の正規化
 // ---------------------------------------------------------------------------
 
-function normalizeStep2And3(raw) {
+function normalizeStep2And3(raw, step1) {
   const s2 = raw.step2 || {};
   const s3 = raw.step3 || {};
 
   // step2
-  const axes = (s2.axes || DEFAULT_TARGETING_AXES).map(a => ({
-    id: a.id,
-    name: a.name || '',
-    description: a.description || '',
-    weight: a.weight || 'medium',
+  // 軸名・説明文はマスタ定義を正とする（AIが勝手に改名しても画面と食い違わないようにする）。
+  // AIに任せるのは weight だけ。
+  const aiAxisMap = {};
+  (s2.axes || []).forEach(a => { if (a?.id) aiAxisMap[a.id] = a; });
+  const axes = DEFAULT_TARGETING_AXES.map(master => ({
+    ...master,
+    weight: aiAxisMap[master.id]?.weight || 'medium',
   }));
 
-  const step2 = {
-    axes,
-    scores: s2.scores || {},
-    targets: s2.targets || {},
-  };
+  // ターゲット候補（課題P-13）
+  // Step2の画面は candidates 起点で描画されるため、ここで必ず作る。
+  // 作らないと、AIが返した scores / targets が画面に出ないまま宙に浮く。
+  const axisNameById = {};
+  (step1?.selectedAxes || []).forEach(ax => { axisNameById[ax.id] = ax.name; });
+
+  const candidates = (s2.candidates || [])
+    .filter(c => c && c.id)
+    .slice(0, 8)
+    .map(c => {
+      // 同じ軸から複数セグメントが来た場合は先勝ちで1つに絞る（画面の1軸1セグメント制約に合わせる）
+      const usedAxes = new Set();
+      const segments = [];
+      for (const s of (Array.isArray(c.segments) ? c.segments : [])) {
+        if (!s?.axisId || !s?.segName || usedAxes.has(s.axisId)) continue;
+        usedAxes.add(s.axisId);
+        segments.push({
+          axisId: s.axisId,
+          axisName: axisNameById[s.axisId] || s.axisName || '',
+          segName: s.segName,
+        });
+      }
+      return {
+        id: c.id,
+        // 名前が無ければ掛け合わせから組み立てる（画面が空欄の候補で埋まるのを防ぐ）
+        name: c.name || segments.map(s => s.segName).join('×'),
+        segments,
+        memo: c.memo || '',
+      };
+    });
+
+  // 候補に存在しないキーのスコア・ターゲットは捨てる（孤児データを持ち込まない）
+  const validIds = new Set(candidates.map(c => c.id));
+  const scores = {};
+  Object.entries(s2.scores || {}).forEach(([key, value]) => {
+    const candidateId = key.replace(/_ta\d+$/, '');
+    if (validIds.has(candidateId)) scores[key] = value;
+  });
+  const targets = {};
+  Object.entries(s2.targets || {}).forEach(([key, value]) => {
+    if (validIds.has(key)) targets[key] = value;
+  });
+
+  const step2 = { candidates, axes, scores, targets };
 
   // step3
   const competitors = (s3.competitors || []).map(c => ({
@@ -573,60 +571,4 @@ function normalizeStep2And3(raw) {
   };
 
   return { step2, step3 };
-}
-
-// ---------------------------------------------------------------------------
-// メインオーケストレーター
-// ---------------------------------------------------------------------------
-
-/**
- * 3フェーズで企業調査を実行
- * @param {string} companyName - 企業名
- * @param {string} productService - 事業内容
- * @param {string} marketType - 'btob' | 'btoc'
- * @param {object} aiSettings - { provider, apiKey, model, tone }
- * @param {object} callbacks
- *   - onPhaseStart(phaseId) - フェーズ開始時
- *   - onPhaseComplete(phaseId, result) - フェーズ完了時、result は dispatch 用データ
- *   - onError(phaseId, error) - エラー時
- * @param {AbortSignal} signal - キャンセル用
- * @returns {Promise<object>} 全フェーズの結果を集約したオブジェクト
- */
-export async function runFullResearch(companyName, productService, marketType, aiSettings, callbacks, signal) {
-  if (!aiSettings.apiKey) {
-    throw new Error('APIキーが設定されていません。ヘッダーの「AI設定」からAPIキーを入力してください。');
-  }
-
-  const context = { companyName, productService, marketType };
-  const results = {};
-
-  // --- Phase 1: 強み分析 ---
-  callbacks.onPhaseStart(1);
-  const raw1 = await runPhase(1, context, aiSettings, signal);
-  const norm1 = normalizeStep0(raw1, marketType);
-  context.top5 = norm1.step0.top5;
-  context.step0 = norm1.step0;
-  results.step0 = norm1.step0;
-  results.marketType = norm1.marketType;
-  callbacks.onPhaseComplete(1, { step0: norm1.step0, marketType: norm1.marketType });
-
-  // --- Phase 2: セグメンテーション ---
-  callbacks.onPhaseStart(2);
-  const raw2 = await runPhase(2, context, aiSettings, signal);
-  const norm2 = normalizeStep1(raw2, marketType);
-  context.step1 = norm2;
-  results.step1 = norm2;
-  callbacks.onPhaseComplete(2, { step1: norm2 });
-
-  // --- Phase 3: ターゲティング & ポジショニング ---
-  callbacks.onPhaseStart(3);
-  const raw3 = await runPhase(3, context, aiSettings, signal);
-  const norm3 = normalizeStep2And3(raw3);
-  context.step2 = norm3.step2;
-  context.step3 = norm3.step3;
-  results.step2 = norm3.step2;
-  results.step3 = norm3.step3;
-  callbacks.onPhaseComplete(3, { step2: norm3.step2, step3: norm3.step3 });
-
-  return results;
 }
