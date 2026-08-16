@@ -228,7 +228,7 @@ export default function TutorialPage({ onClose }) {
             <StepBadge number={3} text="空の設定ページが表示されるので、自社の情報を入力" />
 
             <Tip>
-              リセットしてもAI設定（APIキー）は保持されるので、再入力は不要です。
+              リセットしても表示・出力の設定（ロゴ・テーマ色）は保持されます。
             </Tip>
           </SectionCard>
 
@@ -259,10 +259,10 @@ export default function TutorialPage({ onClose }) {
                   desc: '保存済みのJSONファイルを読み込んで、以前の作業を再開します。',
                 },
                 {
-                  btn: '🤖 AI設定',
+                  btn: '🎨 設定',
                   color: 'bg-gray-50 border-gray-200',
                   tagColor: 'bg-gray-500',
-                  desc: 'AI企業リサーチやAIコメント生成に使用するAIプロバイダーとAPIキーを設定します。',
+                  desc: 'テーマ色やロゴなど、画面表示と出力ファイルの見た目を設定します。',
                 },
                 {
                   btn: '📚 使い方',
@@ -296,7 +296,6 @@ export default function TutorialPage({ onClose }) {
                 {[
                   '📋 デモで体験',
                   '🔄 リセット',
-                  '🤖 AI設定',
                   '🔍 AIリサーチ',
                   '✏️ 各ステップ編集',
                   '💾 保存',
@@ -320,15 +319,15 @@ export default function TutorialPage({ onClose }) {
               手入力の手間を大幅に削減できます。
             </p>
 
-            <h3 className="text-sm font-bold text-gray-700 mb-3">事前準備：APIキーの設定</h3>
-            <StepBadge number={1} text="ヘッダーの「🤖 AI設定」ボタンをクリック" />
-            <StepBadge number={2} text="お使いのAIプロバイダーを選択（Claude / GPT / Gemini）" />
-            <StepBadge number={3} text="APIキーを入力" />
-
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 my-4">
-              <p className="text-xs font-bold text-gray-700 mb-2">対応プロバイダー</p>
+              <p className="text-xs font-bold text-gray-700 mb-2">事前準備は不要です</p>
+              <p className="text-sm text-gray-600 mb-2">
+                APIキーの取得も、従量課金の設定も要りません。アプリがプロンプトを用意するので、
+                お使いのAIチャットに貼り付けて、返ってきた回答をアプリに貼り戻すだけです。
+                無料プランのチャットでも使えます。
+              </p>
               <div className="flex gap-3">
-                {['Claude (Anthropic)', 'GPT (OpenAI)', 'Gemini (Google)'].map((p) => (
+                {['Claude', 'ChatGPT', 'Gemini'].map((p) => (
                   <span key={p} className="text-xs px-2 py-1 bg-white rounded border border-gray-300 text-gray-600">{p}</span>
                 ))}
               </div>
@@ -336,9 +335,10 @@ export default function TutorialPage({ onClose }) {
 
             <h3 className="text-sm font-bold text-gray-700 mb-3 mt-6">AIリサーチの実行</h3>
             <StepBadge number={1} text="設定ページの「🔍 AIリサーチを実行」ボタンをクリック" />
-            <StepBadge number={2} text="企業名と製品・サービス概要を入力" />
-            <StepBadge number={3} text="「リサーチ開始」をクリック" />
-            <StepBadge number={4} text="4フェーズの分析が自動実行（約40〜70秒）" />
+            <StepBadge number={2} text="企業名と事業内容を入力して「プロンプトを作る」" />
+            <StepBadge number={3} text="プロンプトをコピーして、お使いのAIに貼り付ける" />
+            <StepBadge number={4} text="AIの回答をコピーして、アプリに貼り戻す" />
+            <StepBadge number={5} text="これを3フェーズ分くり返す（途中で閉じても続きから再開できます）" />
 
             <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 my-4">
               <p className="text-xs font-bold text-gray-700 mb-2">自動生成される内容（4フェーズ）</p>

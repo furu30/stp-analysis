@@ -11,7 +11,7 @@ const DEMO_FACTORIES = {
 // モニター向けフィードバックフォーム（GoogleフォームのURLをここに設定。空文字ならボタン非表示）
 const FEEDBACK_FORM_URL = 'https://forms.gle/HZg5KMz2MhtQR4ZB8';
 
-export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOpenProjectList }) {
+export default function Header({ onOpenSettings, onOpenTutorial, onReset, onOpenProjectList }) {
   const { project, dispatch, saveToFile, loadFromFile, undo, redo, canUndo, canRedo, lastSaved, saveError } = useProject();
   const [showDemoMenu, setShowDemoMenu] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -125,8 +125,8 @@ export default function Header({ onOpenAISettings, onOpenTutorial, onReset, onOp
           <button onClick={loadFromFile} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
             📂 開く
           </button>
-          <button onClick={onOpenAISettings} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
-            🤖 AI設定
+          <button onClick={onOpenSettings} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
+            🎨 設定
           </button>
           <button onClick={onOpenTutorial} className="btn btn-sm bg-white/20 text-white hover:bg-white/30 border-0">
             📚 使い方

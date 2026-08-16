@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useRef, useState } from 'react';
-import { createInitialProject } from '../data/defaultData';
+import { createInitialProject, DEFAULT_TARGETING_AXES } from '../data/defaultData';
 
 const ProjectContext = createContext(null);
 const STORAGE_KEY = 'stpAnalysisProject_v1';
@@ -29,6 +29,16 @@ function migrateProject(data) {
   if (data.step3 && !data.step3.kbf) {
     data.step3.kbf = [];
   }
+  // v5→v6: 6R評価軸の軸名・説明文をマスタ定義（DEFAULT_TARGETING_AXES）に揃える
+  // 軸名はユーザーが編集できるものではなく、保存時点のマスタがコピーされて固まっただけのもの。
+  // 「競合の強さ」→「競合の少なさ／参入余地」への改称（課題P-03）を保存済みデータにも反映する。
+  // weight はユーザーが設定するものなので必ず保持し、スコアには一切触れない（＝加重計は不変）。
+  if (data.step2 && Array.isArray(data.step2.axes)) {
+    data.step2.axes = data.step2.axes.map(axis => {
+      const master = DEFAULT_TARGETING_AXES.find(m => m.id === axis.id);
+      return master ? { ...axis, name: master.name, description: master.description } : axis;
+    });
+  }
   // v1→v2: customizationフィールドを追加
   if (!data.customization) {
     data.customization = { theme: 'light', brandColor: '#2563eb', logoUrl: '' };
@@ -41,19 +51,16 @@ function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const data = migrateProject(JSON.parse(raw));
-      if (data.aiSettings) data.aiSettings.apiKey = '';
-      return data;
+      return migrateProject(JSON.parse(raw));
     }
   } catch { /* ignore */ }
   return null;
 }
 
-/** localStorage に保存（apiKey除外）。失敗時はエラー内容を返して呼び出し側で警告表示する */
+/** localStorage に保存。失敗時はエラー内容を返して呼び出し側で警告表示する */
 function saveToStorage(state) {
   try {
-    const data = { ...state, aiSettings: { ...state.aiSettings, apiKey: '' } };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return { time: new Date().toLocaleTimeString('ja-JP'), error: null };
   } catch (e) {
     console.error('自動保存に失敗:', e);
@@ -97,8 +104,6 @@ function projectReducer(state, action) {
       return { ...state, step3: { ...state.step3, ...action.payload } };
     case 'UPDATE_SWOT':
       return { ...state, swot: { ...state.swot, ...action.payload } };
-    case 'UPDATE_AI_SETTINGS':
-      return { ...state, aiSettings: { ...state.aiSettings, ...action.payload } };
     case 'UPDATE_CUSTOMIZATION':
       return { ...state, customization: { ...state.customization, ...action.payload } };
     case 'RESET':
@@ -138,8 +143,7 @@ export function ProjectProvider({ children }) {
       // （「一覧に保存」の押し忘れで編集が古い状態に戻る事故を防ぐ）
       if (!result.error && project._projectId) {
         try {
-          const saveData = { ...project, aiSettings: { ...project.aiSettings, apiKey: '' } };
-          localStorage.setItem(`stpProject_${project._projectId}`, JSON.stringify(saveData));
+          localStorage.setItem(`stpProject_${project._projectId}`, JSON.stringify(project));
           const list = loadProjectList();
           const idx = list.findIndex(p => p.id === project._projectId);
           if (idx >= 0) {
@@ -191,8 +195,6 @@ export function ProjectProvider({ children }) {
     const prev = undoStack.current.pop();
     redoStack.current.push(JSON.parse(JSON.stringify(project)));
     isUndoRedo.current = true;
-    // API keyを保持
-    prev.aiSettings = { ...prev.aiSettings, apiKey: project.aiSettings.apiKey };
     dispatch({ type: 'SET_PROJECT', payload: prev });
   }, [project]);
 
@@ -201,7 +203,6 @@ export function ProjectProvider({ children }) {
     const next = redoStack.current.pop();
     undoStack.current.push(JSON.parse(JSON.stringify(project)));
     isUndoRedo.current = true;
-    next.aiSettings = { ...next.aiSettings, apiKey: project.aiSettings.apiKey };
     dispatch({ type: 'SET_PROJECT', payload: next });
   }, [project]);
 
@@ -222,9 +223,7 @@ export function ProjectProvider({ children }) {
   }, [undo, redo]);
 
   const saveToFile = useCallback(() => {
-    const data = { ...project };
-    const saveData = { ...data, aiSettings: { ...data.aiSettings, apiKey: '' } };
-    const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
     const name = project.settings.projectName || 'STP分析';
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const a = document.createElement('a');
@@ -283,7 +282,7 @@ export function ProjectProvider({ children }) {
     saveProjectList(list);
 
     // プロジェクトデータ自体も個別に保存
-    const saveData = { ...project, _projectId: id, aiSettings: { ...project.aiSettings, apiKey: '' } };
+    const saveData = { ...project, _projectId: id };
     try { localStorage.setItem(`stpProject_${id}`, JSON.stringify(saveData)); } catch { /* */ }
 
     // _projectId をstateにセット
@@ -297,14 +296,12 @@ export function ProjectProvider({ children }) {
     try {
       const raw = localStorage.getItem(`stpProject_${id}`);
       if (raw) {
-        const data = migrateProject(JSON.parse(raw));
-        data.aiSettings = { ...data.aiSettings, apiKey: project.aiSettings.apiKey };
-        dispatch({ type: 'SET_PROJECT', payload: data });
+        dispatch({ type: 'SET_PROJECT', payload: migrateProject(JSON.parse(raw)) });
         return true;
       }
     } catch { /* */ }
     return false;
-  }, [project.aiSettings.apiKey]);
+  }, []);
 
   const deleteProjectFromList = useCallback((id) => {
     const list = loadProjectList().filter(p => p.id !== id);
@@ -322,7 +319,6 @@ export function ProjectProvider({ children }) {
       const newId = `proj_${Date.now()}`;
       data._projectId = newId;
       data.settings.projectName = `${data.settings.projectName || '無題'} (コピー)`;
-      data.aiSettings.apiKey = '';
       localStorage.setItem(`stpProject_${newId}`, JSON.stringify(data));
 
       const list = loadProjectList();

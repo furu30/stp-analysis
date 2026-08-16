@@ -89,7 +89,7 @@ export const BTOC_SEGMENTS = [
 export const DEFAULT_TARGETING_AXES = [
   { id: 'ta1', name: '市場規模', description: 'そのセグメントの顧客数・売上ポテンシャルはどれくらいか', sixR: 'Realistic Scale' },
   { id: 'ta2', name: '成長性', description: '今後3〜5年でそのセグメントは拡大するか', sixR: 'Rate of Growth' },
-  { id: 'ta3', name: '競合の強さ', description: '既存プレーヤーが強く市場参入が難しいか（逆スコア：弱いほど高評価）', sixR: 'Rival' },
+  { id: 'ta3', name: '競合の少なさ／参入余地', description: '既存プレーヤーが少なく参入余地が大きいか（競合が弱いほど高評価）', sixR: 'Rival' },
   { id: 'ta4', name: '自社適合性', description: '自社の強み・リソース・既存顧客との親和性はどれくらいか', sixR: 'Rank' },
   { id: 'ta5', name: '到達可能性', description: 'そのセグメントに対して効果的にアプローチできるか（営業・販路・コスト面）', sixR: 'Reach' },
   { id: 'ta6', name: '収益性', description: '価格転嫁のしやすさ・粗利率など収益を確保しやすいか', sixR: 'Response' },
@@ -166,12 +166,6 @@ export function createInitialProject() {
       // 自社に合う戦略オプションを導き出して入力→視点を選択→効果・実現性で評価する
       strategyOptions: [], // [{ id, type: 'so'|'st'|'wo'|'wt'|'', text, effect: '高'|'中'|'低'|'', feasibility: 同左 }]
       skipped: false,
-    },
-    aiSettings: {
-      provider: 'claude',
-      apiKey: '',
-      model: 'claude-sonnet-5',
-      tone: 'formal',
     },
     customization: {
       theme: 'light', // light / dark

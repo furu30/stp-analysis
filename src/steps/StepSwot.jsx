@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useProject } from '../context/ProjectContext';
 import HelpTip from '../components/HelpTip';
-import { generateAIComment } from '../utils/aiService';
+import AIPromptModal from '../components/AIPromptModal';
 
 const QUADRANTS = [
   {
@@ -73,8 +73,8 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
   const { project, dispatch } = useProject();
   const swot = project.swot || { strengths: [], weaknesses: [], opportunities: [], threats: [], strategyOptions: [] };
   const [showCross, setShowCross] = useState(initialShowCross);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiCrossGenerating, setAiCrossGenerating] = useState(false);
+  // プロンプト配布方式のAIモーダル（課題M-01）。{ type, data } を持つと開く
+  const [promptModal, setPromptModal] = useState(null);
   const [showExamples, setShowExamples] = useState({});
 
   // Step0のTop5強みを自動取り込み
@@ -180,104 +180,74 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
     updateList(key, current);
   };
 
-  // AI一括生成: 弱み・機会・脅威をAIに生成させる
-  const generateSwotWithAI = useCallback(async () => {
-    if (!project.aiSettings.apiKey) {
-      alert('AIを使用するにはヘッダーの「AI設定」からAPIキーを設定してください。');
-      return;
-    }
-    setAiGenerating(true);
-    try {
-      const result = await generateAIComment('swotGenerate', {
+  // 弱み・機会・脅威: プロンプトを組み立ててモーダルを開く
+  const openSwotPrompt = useCallback(() => {
+    setPromptModal({
+      type: 'swotGenerate',
+      data: {
         settings: project.settings,
         top5: project.step0.top5,
         currentStrengths: effectiveStrengths.filter(Boolean),
         step1: project.step1,
         step2: project.step2,
-      }, project.aiSettings);
-
-      // AIの結果をパース（JSON配列形式を期待）
-      try {
-        const parsed = JSON.parse(result.match(/\{[\s\S]*\}/)?.[0] || result);
-        if (parsed.weaknesses) updateList('weaknesses', parsed.weaknesses.slice(0, MAX_ROWS));
-        if (parsed.opportunities) updateList('opportunities', parsed.opportunities.slice(0, MAX_ROWS));
-        if (parsed.threats) updateList('threats', parsed.threats.slice(0, MAX_ROWS));
-        // 強みが空ならAI提案も取り込む
-        if (parsed.strengths && effectiveStrengths.filter(Boolean).length === 0) {
-          updateList('strengths', parsed.strengths.slice(0, MAX_ROWS));
-        }
-      } catch {
-        // テキストとして行分割
-        const lines = result.split('\n').filter(l => l.trim());
-        // 簡易パース: W: / O: / T: プレフィックスで分類
-        const w = [], o = [], t = [];
-        let current = null;
-        for (const line of lines) {
-          const clean = line.replace(/^[-・*]\s*/, '').trim();
-          if (/^[Ww弱]/.test(clean)) current = w;
-          else if (/^[Oo機]/.test(clean)) current = o;
-          else if (/^[Tt脅]/.test(clean)) current = t;
-          if (current && clean) current.push(clean.replace(/^[SWOT弱み機会脅威:\s]+/i, '').trim());
-        }
-        if (w.length) updateList('weaknesses', w.slice(0, MAX_ROWS));
-        if (o.length) updateList('opportunities', o.slice(0, MAX_ROWS));
-        if (t.length) updateList('threats', t.slice(0, MAX_ROWS));
-      }
-    } catch (e) {
-      alert(`AI生成エラー: ${e.message}`);
-    } finally {
-      setAiGenerating(false);
-    }
+      },
+    });
   }, [project, effectiveStrengths]);
 
-  // AIクロスSWOT生成
-  const generateCrossWithAI = useCallback(async () => {
-    if (!project.aiSettings.apiKey) {
-      alert('AIを使用するにはヘッダーの「AI設定」からAPIキーを設定してください。');
-      return;
+  // 貼り戻されたJSONを取り込む。取り込めなければ理由を文字列で返す（モーダル側が表示する）
+  const applySwotResult = (parsed) => {
+    const picked = ['weaknesses', 'opportunities', 'threats']
+      .filter(key => Array.isArray(parsed[key]) && parsed[key].length > 0);
+    if (picked.length === 0) {
+      return 'weaknesses / opportunities / threats のいずれも見つかりませんでした。AIの回答を全文コピーできているか確認してください。';
     }
-    setAiCrossGenerating(true);
-    try {
-      const quadrantData = {
-        strengths: effectiveStrengths.filter(Boolean),
-        weaknesses: (swot.weaknesses || []).filter(Boolean),
-        opportunities: (swot.opportunities || []).filter(Boolean),
-        threats: (swot.threats || []).filter(Boolean),
-      };
-      const result = await generateAIComment('crossSwotGenerate', {
-        settings: project.settings,
-        swot: quadrantData,
-        top5: project.step0.top5,
-      }, project.aiSettings);
+    for (const key of picked) {
+      updateList(key, parsed[key].filter(v => typeof v === 'string' && v.trim()).slice(0, MAX_ROWS));
+    }
+    // 強みが未入力ならAI提案も取り込む
+    if (Array.isArray(parsed.strengths) && effectiveStrengths.filter(Boolean).length === 0) {
+      updateList('strengths', parsed.strengths.filter(v => typeof v === 'string' && v.trim()).slice(0, MAX_ROWS));
+    }
+    return null;
+  };
 
-      try {
-        const parsed = JSON.parse(result.match(/\{[\s\S]*\}/)?.[0] || result);
-        const options = (parsed.options || [])
-          .filter(o => o && o.text)
-          .slice(0, 8)
-          .map((o, i) => ({
-            id: `opt_ai_${Date.now()}_${i}`,
-            type: ['so', 'st', 'wo', 'wt'].includes(o.type) ? o.type : '',
-            text: o.text,
-            effect: EVAL_LEVELS.includes(o.effect) ? o.effect : '',
-            feasibility: EVAL_LEVELS.includes(o.feasibility) ? o.feasibility : '',
-          }));
-        if (options.length > 0) {
-          // 手入力済みのオプションは残し、空枠をAI案で置き換える
-          const existing = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
-          updateOptions([...existing, ...options]);
-        }
-      } catch {
-        // パース失敗時はテキスト全体を1つ目のオプションに入れる
-        const existing = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
-        updateOptions([...existing, { id: `opt_ai_${Date.now()}`, type: '', text: result.trim(), effect: '', feasibility: '' }]);
-      }
-    } catch (e) {
-      alert(`AI生成エラー: ${e.message}`);
-    } finally {
-      setAiCrossGenerating(false);
-    }
+  // クロスSWOT: プロンプトを組み立ててモーダルを開く
+  const openCrossPrompt = useCallback(() => {
+    setPromptModal({
+      type: 'crossSwotGenerate',
+      data: {
+        settings: project.settings,
+        swot: {
+          strengths: effectiveStrengths.filter(Boolean),
+          weaknesses: (swot.weaknesses || []).filter(Boolean),
+          opportunities: (swot.opportunities || []).filter(Boolean),
+          threats: (swot.threats || []).filter(Boolean),
+        },
+        top5: project.step0.top5,
+      },
+    });
   }, [project, effectiveStrengths, swot]);
+
+  // 貼り戻されたJSONを戦略オプションに取り込む
+  const applyCrossResult = (parsed) => {
+    const options = (Array.isArray(parsed.options) ? parsed.options : [])
+      .filter(o => o && typeof o.text === 'string' && o.text.trim())
+      .slice(0, 8)
+      .map((o, i) => ({
+        id: `opt_ai_${Date.now()}_${i}`,
+        type: ['so', 'st', 'wo', 'wt'].includes(o.type) ? o.type : '',
+        text: o.text,
+        effect: EVAL_LEVELS.includes(o.effect) ? o.effect : '',
+        feasibility: EVAL_LEVELS.includes(o.feasibility) ? o.feasibility : '',
+      }));
+    if (options.length === 0) {
+      return 'options が見つかりませんでした。AIの回答を全文コピーできているか確認してください。';
+    }
+    // 手入力済みのオプションは残し、空枠をAI案で置き換える
+    const existing = (swot.strategyOptions || []).filter(o => (o.text || '').trim());
+    updateOptions([...existing, ...options]);
+    return null;
+  };
 
   const quadrantData = {
     strengths: getItems('strengths'),
@@ -287,7 +257,16 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
   };
 
   const hasData = Object.values(quadrantData).some(arr => arr.some(Boolean));
-  const hasApiKey = !!project.aiSettings.apiKey;
+
+  // プロンプト配布方式のモーダル。取り込み先は開いた種別で決まる
+  const promptModalNode = promptModal && (
+    <AIPromptModal
+      type={promptModal.type}
+      data={promptModal.data}
+      onApply={promptModal.type === 'swotGenerate' ? applySwotResult : applyCrossResult}
+      onClose={() => setPromptModal(null)}
+    />
+  );
 
   // ---------- クロスSWOT画面 ----------
   if (showCross) {
@@ -300,15 +279,9 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
               <p className="text-sm text-gray-500">4つの組み合わせ（S×O・S×T・W×O・W×T）の視点で発想し、自社に合う戦略オプションを導き出して評価します。</p>
             </div>
             <div className="flex gap-2">
-              {hasApiKey && (
-                <button
-                  onClick={generateCrossWithAI}
-                  disabled={aiCrossGenerating}
-                  className="btn-accent btn-sm"
-                >
-                  {aiCrossGenerating ? '⏳ AI生成中...' : '🤖 AIで戦略案を生成'}
-                </button>
-              )}
+              <button onClick={openCrossPrompt} className="btn-accent btn-sm">
+                🤖 AIで戦略案を考える
+              </button>
               <button onClick={() => setShowCross(false)} className="btn-secondary btn-sm">← SWOT入力に戻る</button>
             </div>
           </div>
@@ -418,6 +391,7 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
             <button onClick={onNext} className="btn-primary">次へ：出力 →</button>
           </div>
         </div>
+        {promptModalNode}
       </div>
     );
   }
@@ -430,26 +404,14 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
           <div>
             <h2 className="section-title mb-1">
               SWOT分析
-              <HelpTip text="自社の内部環境（強み・弱み）と外部環境（機会・脅威）を整理し、戦略の方向性を導き出します。" detail="強みはStep0から自動取り込み。弱み・機会・脅威を入力してください。AIで一括生成も可能です。" />
+              <HelpTip text="自社の内部環境（強み・弱み）と外部環境（機会・脅威）を整理し、戦略の方向性を導き出します。" detail="強みはStep0から自動取り込み。弱み・機会・脅威を入力してください。お使いのAIに考えてもらうこともできます。" />
             </h2>
             <p className="text-sm text-gray-500">内部環境と外部環境を整理し、クロスSWOTで戦略方向性を導きます。</p>
           </div>
-          {hasApiKey && (
-            <button
-              onClick={generateSwotWithAI}
-              disabled={aiGenerating}
-              className="btn-accent btn-sm"
-            >
-              {aiGenerating ? '⏳ AI分析中...' : '🤖 AIで弱み・機会・脅威を生成'}
-            </button>
-          )}
+          <button onClick={openSwotPrompt} className="btn-accent btn-sm">
+            🤖 AIで弱み・機会・脅威を考える
+          </button>
         </div>
-
-        {!hasApiKey && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700">💡 ヘッダーの「AI設定」からAPIキーを設定すると、弱み・機会・脅威をAIで一括生成できます。</p>
-          </div>
-        )}
 
         {/* Step3の競合比較からの強みサジェスト */}
         {advantageAxes.length > 0 && (
@@ -565,6 +527,7 @@ export default function StepSwot({ onNext, onBack, initialShowCross = false }) {
           </div>
         </div>
       </div>
+      {promptModalNode}
     </div>
   );
 }

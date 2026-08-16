@@ -15,7 +15,6 @@ export default function ProjectSettings({ onNext, onNavigate }) {
   const [showResearch, setShowResearch] = useState(false);
   const [touched, setTouched] = useState({});
 
-  const hasApiKey = !!project.aiSettings.apiKey;
   // まだ何も入力していない状態（＝初回ユーザーの可能性が高い）でのみデモCTAを表示
   const isFresh = !s.projectName && !s.companyName;
 
@@ -174,7 +173,6 @@ export default function ProjectSettings({ onNext, onNavigate }) {
                   proj.settings.projectName = s.projectName;
                   proj.settings.companyName = s.companyName;
                   proj.settings.businessDescription = s.businessDescription || '';
-                  proj.aiSettings = project.aiSettings;
                   if (project.customization) proj.customization = project.customization;
                   dispatch({ type: 'SET_PROJECT', payload: proj });
                 }}
@@ -197,16 +195,11 @@ export default function ProjectSettings({ onNext, onNavigate }) {
             <div className="flex-1">
               <h3 className="text-sm font-bold text-gray-800 mb-1">AI企業リサーチ</h3>
               <p className="text-xs text-gray-500 mb-3">
-                企業名と事業内容をもとに、AIがバリューチェーン分析・セグメンテーション・ターゲティング・ポジショニングのドラフトを自動生成します。
+                企業名と事業内容をもとに、バリューチェーン分析・セグメンテーション・ターゲティング・ポジショニングのドラフトを作るプロンプトを用意します。
+                お使いのAI（Claude / ChatGPT / Gemini）に貼り付けて、返ってきた回答をアプリに貼り戻してください。APIキーは不要です。
               </p>
-              {!hasApiKey && (
-                <p className="text-xs text-amber-600 mb-3">
-                  ⚠️ ヘッダーの「AI設定」からAPIキーを設定してください。
-                </p>
-              )}
               <button
                 onClick={() => setShowResearch(true)}
-                disabled={!hasApiKey}
                 className="btn-primary btn-sm"
               >
                 🔍 AIリサーチを実行
